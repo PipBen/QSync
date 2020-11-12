@@ -1514,45 +1514,45 @@ axA.legend()
 ##plt.savefig('synchs_50cmdetun',bbox_inches='tight',dpi=600)
 
 
+
+
+sampleratecm = 1/(t_cm[1]-t_cm[0])
+
+freqres = 0.5
+
+pads = int((sampleratecm/freqres)-np.shape(x1)[0]) #30000
+
+x1pad = np.append(x1,np.zeros(pads))
+
+x2pad = np.append(x2,np.zeros(pads))
+
+fr1 = np.fft.rfft(x1pad,int(np.size(x1pad)))
+
+fr2 = np.fft.rfft(x2pad,int(np.size(x2pad)))
+
+freq_cm = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
+
 # %%
 
-# sampleratecm = 1/(t_cm[1]-t_cm[0])
 
-# freqres = 0.5
+st = int(1000/(sampleratecm/np.size(x1pad)))
 
-# pads = int((sampleratecm/freqres)-np.shape(x1)[0]) #30000
-
-# x1pad = np.append(x1,np.zeros(pads))
-
-# x2pad = np.append(x2,np.zeros(pads))
-
-# fr1 = np.fft.rfft(x1pad,int(np.size(x1pad)))
-
-# fr2 = np.fft.rfft(x2pad,int(np.size(x2pad)))
-
-# freq_cm = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
-
-# %%
+en = int(1300/(sampleratecm/np.size(x1pad)))
 
 
-# st = int(1000/(sampleratecm/np.size(x1pad)))
+plt.figure(13)
 
-# en = int(1300/(sampleratecm/np.size(x1pad)))
+plt.plot(freq_cm[st:en],np.real(fr1)[st:en],label='<$X_1$>')
 
+plt.plot(freq_cm[st:en],np.real(fr2)[st:en],label='<$X_2$>')
 
-# plt.figure(13)
+plt.ylabel('Real')
 
-# plt.plot(freq_cm[st:en],np.real(fr1)[st:en],label='<$X_1$>')
+plt.xlabel('Frequency ($cm^{-1}$)')
 
-# plt.plot(freq_cm[st:en],np.real(fr2)[st:en],label='<$X_2$>')
+plt.legend()
 
-# plt.ylabel('Real')
-
-# plt.xlabel('Frequency ($cm^{-1}$)')
-
-# plt.legend()
-
-# plt.grid()
+plt.grid()
 
 #
 
@@ -1569,25 +1569,25 @@ axA.legend()
 # plt.grid()
 
 
-# plt.figure(19)
+plt.figure(19)
 
-# plt.plot(freq_cm[st:en],(np.abs(fr1)**2)[st:en],label='<$X_1$>')
+plt.plot(freq_cm[st:en],(np.abs(fr1)**2)[st:en],label='<$X_1$>')
 
-# plt.plot(freq_cm[st:en],(np.abs(fr2)**2)[st:en],label='<$X_2$>')
+plt.plot(freq_cm[st:en],(np.abs(fr2)**2)[st:en],label='<$X_2$>')
 
-# plt.ylabel('Power')
+plt.ylabel('Power')
 
-# plt.xlabel('Frequency ($cm^{-1}$)')
+plt.xlabel('Frequency ($cm^{-1}$)')
 
-# plt.grid(True,which='both')
+plt.grid(True,which='both')
 
-# plt.minorticks_on()
+plt.minorticks_on()
 
-# plt.yticks([])
+plt.yticks([])
 
-# plt.title('Full time evolution FT')
+plt.title('Full time evolution FT')
 
-# plt.legend()
+plt.legend()
 
 
 # %%

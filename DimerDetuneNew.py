@@ -22,38 +22,58 @@ import scipy.linalg as sl
 
 
 class DimerDetune:
-
+    """Defines properties and functions of the vibronic dimer system"""
     def __init__(self, n_vib_cutoff=5, temperature=298):
-        self.omega = 1111
+        #initialise properties of dimer 
+        
+        #unsure
         self.huang = 0.0578
+        #initialise with no detuning
+        self.omega = 1111
         self.detuning = 1.00
         self.w1 = self.omega
         self.w2 = self.detuning * self.omega
+        
+        #electronic states
         self.e1 = 0 + self.w1 * self.huang
         self.e2 = 1042 + self.w2 * self.huang  # 946.412
         self.de = self.e2 - self.e1
+
+        #dipole-dipole coupling strength
         self.V = 92  # 236.603 # cm-1
+
+        #excitonic states 
         self.dE = np.sqrt(self.de ** 2 + 4 * self.V ** 2)  # energy between excitonic states
+        #rotation angle to create excitonic Hamiltonian
         self.theta = 0.5 * np.arctan(2 * self.V / self.de)
+
+        #exciton-vibration coupling strength
         self.a = 1
         self.g1 = self.w1 * np.sqrt(self.huang) * self.a
         self.g2 = self.w2 * np.sqrt(self.huang) * self.a
-
+        
+        #decoherence properties
         self.kBT = (constant.k * temperature) / (constant.h * constant.c * 100)  # cm-1
+        #rates.. where do these numbers come from?
         self.thermal_dissipation = 33.3564  # 70
         self.electronic_dephasing = 333.564
+        #0.1, 1 ps rates - SWAP THESE ROUND
         self.taudiss = 1 / (1e-12 * self.thermal_dissipation * 100 * constant.c)
         self.taudeph = 1 / (1e-12 * self.electronic_dephasing * 100 * constant.c)
-        self.N = n_vib_cutoff  # 7
-
-        self.dimH = 2 * n_vib_cutoff**2  # Hilbert space dimension
-
-        # %% scaling effects from setting 2pi x c = 1 and hbar = 1
+        
+         # %% scaling effects from setting 2pi x c = 1 and hbar = 1
 
         self.r_el = self.electronic_dephasing / (2 * constant.pi)
         self.r_th = self.thermal_dissipation / (2 * constant.pi)
         self.r_v1 = self.r_th  # 6 # cm-1
         self.r_v2 = self.r_th  # 6 # cm-1
+
+
+        #hilbert space defined according to max number of vibrational modes
+        self.N = n_vib_cutoff  # 7
+        self.dimH = 2 * n_vib_cutoff**2  # Hilbert space dimension
+
+       
 
         # Exciton Vectors
 
@@ -78,12 +98,12 @@ class DimerDetune:
 
     def rotate(self):
         """Unitary rotation from site to excitonic bases"""
+        #why sparse matrix here?
         return sp.lil_matrix(np.matrix([[np.cos(self.theta), np.sin(self.theta)],
                                         [-np.sin(self.theta), np.cos(self.theta)]])).tocsr()
 
     def vib_mode_operator(self, k, j):
         """returns |k><j| in the vibrational Fock space"""
-
         mode1 = np.matrix(np.zeros([self.N, 1]))
         mode2 = np.matrix(np.zeros([self.N, 1]))
         mode1[k, 0] = 1
@@ -91,10 +111,12 @@ class DimerDetune:
 
     def destroy(self):
         """Annihilation operator on vibrational Fock space"""
+        #defined in thesis as b
         return sp.diags(np.sqrt(np.arange(1, self.N)), 1).tocsr()
 
     def identity_vib(self):
         """identity operator on vibrational Fock space"""
+        #sp.eye returns 1s on diag
         return sp.eye(self.N, self.N).tocsr()
 
     def thermal(self, w):
@@ -105,6 +127,7 @@ class DimerDetune:
         return sp.lil_matrix(p).tocsr()
 
     def a_k(self, k):
+        #not sure about this one
         return self.rotate() * self.exciton_operator(k, k) * self.rotate().getH()
 
     @staticmethod
@@ -117,7 +140,7 @@ class DimerDetune:
 
     @staticmethod
     def liouv_commutator(operator):
-        """Commutatior in Liouville space"""
+        """Commutator in Liouville space"""
         h = sp.kron(operator, sp.eye(operator.shape[1])).tocsr() - sp.kron(sp.eye(operator.shape[1]), operator.transpose()).tocsr()
         return h
 
@@ -176,7 +199,7 @@ class Operations(DimerDetune):
 
     def steady_state(self):
         l = self.liouvillian()
-        a = sl.eig(l)
+        a = sl.eig(l) #eigenvectors of liovillian
         eners = a[0]
         eigstates = a[1]
         print('max eigenvalue is ', max(np.real(eners)))
