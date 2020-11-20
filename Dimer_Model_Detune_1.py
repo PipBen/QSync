@@ -109,9 +109,13 @@ thermal_dissipation = 33.3564  # 70
 
 electronic_dephasing = 333.564
 
-taudiss = 1 / (1e-12 * thermal_dissipation * 100 * constant.c)
+# taudiss = 1 / (1e-12 * thermal_dissipation * 100 * constant.c)
 
-taudeph = 1 / (1e-12 * electronic_dephasing * 100 * constant.c)
+# taudeph = 1 / (1e-12 * electronic_dephasing * 100 * constant.c)
+
+taudeph = 1 / (1e-12 * thermal_dissipation * 100 * constant.c)
+
+taudiss = 1 / (1e-12 * electronic_dephasing * 100 * constant.c) 
 
 N = 5  # 7
 

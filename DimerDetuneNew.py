@@ -26,6 +26,8 @@ class DimerDetune:
     def __init__(self, n_vib_cutoff=5, temperature=298):
         #initialise properties of dimer 
         
+        self.temperature =  temperature
+
         #unsure
         self.huang = 0.0578
         #initialise with no detuning
@@ -249,7 +251,9 @@ class Operations(DimerDetune):
 
 if __name__ == "__main__":
     n_cutoff = 3
-    dimer = DimerDetune(n_cutoff)
-    ops = Operations()
-    rho0 = ops.steady_state()
-
+    dimer = DimerDetune(n_cutoff, 300)
+    ops = Operations(dimer)
+    #rho0 = ops.steady_state()
+    rhoT = ops.time_evol_me(0, 3, dt=None)
+    print(rhoT)
+    #print(dimer.temperature)
