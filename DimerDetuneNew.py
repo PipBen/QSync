@@ -19,6 +19,7 @@ import scipy.integrate as integrate
 import time
 import scipy.sparse as sp
 import scipy.linalg as sl
+import matplotlib.pylab as plt
 
 
 class DimerDetune:
@@ -70,12 +71,9 @@ class DimerDetune:
         self.r_v1 = self.r_th  # 6 # cm-1
         self.r_v2 = self.r_th  # 6 # cm-1
 
-
         #hilbert space defined according to max number of vibrational modes
         self.N = n_vib_cutoff  # 7
         self.dimH = 2 * n_vib_cutoff**2  # Hilbert space dimension
-
-       
 
         # Exciton Vectors
 
@@ -100,7 +98,8 @@ class DimerDetune:
 
     def rotate(self):
         """Unitary rotation from site to excitonic bases"""
-        #why sparse matrix here?
+        #why sparse matrix here? - You're right its not really sparse, but we need it to do operations with other sparse matrices
+        # so put it in that format.
         return sp.lil_matrix(np.matrix([[np.cos(self.theta), np.sin(self.theta)],
                                         [-np.sin(self.theta), np.cos(self.theta)]])).tocsr()
 
@@ -129,7 +128,7 @@ class DimerDetune:
         return sp.lil_matrix(p).tocsr()
 
     def a_k(self, k):
-        #not sure about this one
+        #not sure about this one - rotates an excitonic operator back into the site basis
         return self.rotate() * self.exciton_operator(k, k) * self.rotate().getH()
 
     @staticmethod
@@ -151,7 +150,7 @@ class DimerDetune:
         |1(2)><1(2)| is the site basis ground (excited) state"""
         oE1 = self.exciton_operator(1, 1)
         oE2 = self.exciton_operator(2, 2)
-        sigmaz = oE2 - oE1   # note that this is backwards... redefine it when going back over this
+        sigmaz = oE2 - oE1   # note that this is backwards compared to definition in quantum information approaches
         b = self.destroy()
         Iv = self.identity_vib()
         eldis1 = self.a_k(1)
@@ -246,14 +245,110 @@ class Operations(DimerDetune):
         count2 = time.time()
         print('Integration =', count2 - count1)
 
-        return rhoT
+        return rhoT, t
+
+    def oper_evol(self, operator, t0, tmax_ps, dt=None):
+        """calculates the time evolution of an operator"""
+        rhoT, times = self.time_evol_me(t0, tmax_ps, dt)
+        steps = len(rhoT[:, 0])
+        N = int(np.sqrt(len(rhoT[0, :])))
+        oper = np.zeros(steps)
+        for i in np.arange(steps):
+            oper[i] = np.real(np.trace(operator.dot(rhoT[i, :].reshape(N, N))))
+        return oper, times
+
+    @staticmethod
+    def corrfunc(f1, f2, delta):
+        f1bar = np.zeros(np.size(f1) - delta)
+        f2bar = np.zeros(np.size(f1) - delta)
+        df1df2bar = np.zeros(np.size(f1) - 2 * delta)
+        df1sqbar = np.zeros(np.size(f1) - 2 * delta)
+        df2sqbar = np.zeros(np.size(f1) - 2 * delta)
+        for i in np.arange(np.size(f1) - delta):
+            f1bar[i] = (1 / delta) * integrate.trapz(f1[i:i + delta + 1])
+            f2bar[i] = (1 / delta) * integrate.trapz(f2[i:i + delta + 1])
+        df1 = f1[0:(np.size(f1) - delta)] - f1bar
+        df2 = f2[0:(np.size(f1) - delta)] - f2bar
+        df1df2 = df1 * df2
+        df1sq = df1 ** 2
+        df2sq = df2 ** 2
+        for i in np.arange(np.size(f1) - 2 * delta):
+            df1df2bar[i] = integrate.trapz(df1df2[i:i + delta + 1])
+            df1sqbar[i] = integrate.trapz(df1sq[i:i + delta + 1])
+            df2sqbar[i] = integrate.trapz(df2sq[i:i + delta + 1])
+        C = df1df2bar / np.sqrt(df1sqbar * df2sqbar)
+        return C
+
+
+class Plots(Operations):
+
+    def figure14(self):
+
+
+        b = self.destroy()
+        Iv = self.identity_vib()
+        Ie = sp.eye(2, 2).tocsr()
+        oB1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
+        oB2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
+        oX2 = oB2 + oB2.getH()
+        oX1 = oB1 + oB1.getH()
+
+        t0 = 0
+        tmaxps = 4.
+        dt = ((2 * constant.pi) / self.omega) / 100
+        # t_cm = t / (2 * constant.pi)
+        # t_ps = (t_cm * 1e12) / (100 * constant.c)
+
+        x1, t = self.oper_evol(oX1, t0, tmaxps, dt)
+        x2, _ = self.oper_evol(oX2, t0, tmaxps, dt)  # can also pass a time step if necessary
+
+        t_cm = t / (2 * constant.pi)
+        t_ps = (t_cm * 1e12) / (100 * constant.c)
+
+        elta = np.int(np.round(((2 * constant.pi) / self.omega) / dt))
+        c_X12 = self.corrfunc(x1, x2, elta)
+
+        FigureA = plt.figure(14)
+        en = 13000
+        st = 0000
+        itvl = 5
+        axA = FigureA.add_subplot(111)
+        axA.plot(t_ps[np.arange(st, en, itvl)], x2[np.arange(st, en, itvl)], label=r'$\langle X_2\rangle$')
+        # plt.plot(t_ps[np.arange(st,en,itvl)],x2sq[np.arange(st,en,itvl)],label=r'$\langle X_2^2\rangle$')
+        axA.plot(t_ps[np.arange(st, en, itvl)], x1[np.arange(st, en, itvl)], label=r'$\langle X_1\rangle$')
+        # plt.plot(t_ps[np.arange(st,en,itvl)],x1sq[np.arange(st,en,itvl)],label=r'$\langle X_1^2\rangle$')
+        # plt.plot(t_ps[np.arange(0,en,itvl)],c_Xsq12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1^2\rangle\langle x_2^2\rangle}$')
+        # plt.plot(t_ps[np.arange(0,en,itvl)],c_nsq12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1^2\rangle\langle n_2^2\rangle}$')
+        # plt.plot(t_ps[np.arange(0,en,itvl)],c_n12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1\rangle\langle n_2\rangle}$')
+        # plt.plot(t_ps[np.arange(st,en,itvl)],v_x1[np.arange(st,en,itvl)],label=r'$V(X_1)$')
+        # plt.plot(t_ps[np.arange(st,en,itvl)],v_x2[np.arange(st,en,itvl)],label=r'$V(X_2)$')
+        # plt.plot(t_ps[np.arange(0,en,itvl)],c_vx12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle V(x_1)\rangle\langle V(x_2)\rangle}$')
+        # plt.plot(t_ps[np.arange(st,en,itvl)],np.real(hINT_t)[np.arange(st,en,itvl)]/250,label=r'$H_{int}$')
+        # plt.ylabel('$<x>$')
+        # plt.ylabel('$C_{<X_1><X_2>}$',fontsize=12)
+        axA.set_xlabel('Time (ps)')
+        # axA.set_xlim([0,10])
+        axA.set_yticks([])
+        axB = axA.twinx()
+        axB.plot(t_ps[np.arange(st, en, itvl)], c_X12[np.arange(st, en, itvl)], 'r-o', markevery=0.05, markersize=5,
+                 label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+        axB.grid()
+        axA.grid()
+        axB.legend(bbox_to_anchor=(0.9, 0.6))
+        axA.legend()
+        # plt.savefig('cXX_dw004_QC.pdf',bbox_inches='tight',dpi=600,format='pdf',transparent=True)
 
 
 if __name__ == "__main__":
-    n_cutoff = 3
-    dimer = DimerDetune(n_cutoff, 300)
-    ops = Operations(dimer)
+    n_cutoff = 3   # this is the maximim occupation of the vibrational mode
+    # dimer = DimerDetune(n_cutoff, 300)
+    # ops = Operations(n_cutoff, 300)  # this takes the same inputs as DimerDetune
     #rho0 = ops.steady_state()
-    rhoT = ops.time_evol_me(0, 3, dt=None)
-    print(rhoT)
-    #print(dimer.temperature)
+    # rhoT = ops.time_evol_me(0, 3, dt=None)
+    # print(rhoT)
+
+    # plotting figure 14 (rename this something more descriptive of the output)
+    plots_class = Plots(n_cutoff, 300)
+    plots_class.figure14()
+    plt.show()
+
