@@ -105,9 +105,9 @@ g2 = w2 * np.sqrt(huang) * a
 
 kBT = (constant.k * (298)) / (constant.h * constant.c * 100)  # cm-1
 
-thermal_dissipation = 33.3564  # 70
+thermal_dissipation = 333.3564  # 70
 
-electronic_dephasing = 333.564
+electronic_dephasing = 33.564
 
 # taudiss = 1 / (1e-12 * thermal_dissipation * 100 * constant.c)
 

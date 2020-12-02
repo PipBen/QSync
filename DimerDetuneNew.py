@@ -24,9 +24,10 @@ import matplotlib.pylab as plt
 
 class DimerDetune:
     """Defines properties and functions of the vibronic dimer system"""
-    def __init__(self, n_vib_cutoff=5, temperature=298):
+    def __init__(self, rate_swap, n_cutoff=5, temperature=298, ):
         #initialise properties of dimer 
         
+        self.n_cutoff =n_cutoff
         self.temperature =  temperature
 
         #unsure
@@ -58,9 +59,14 @@ class DimerDetune:
         #decoherence properties
         self.kBT = (constant.k * temperature) / (constant.h * constant.c * 100)  # cm-1
         #rates.. where do these numbers come from?
-        self.thermal_dissipation = 33.3564  # 70
-        self.electronic_dephasing = 333.564
-        #0.1, 1 ps rates - SWAP THESE ROUND
+
+        if rate_swap ==True:
+            self.thermal_dissipation = 333.3564  # 70
+            self.electronic_dephasing = 33.564
+        else:
+            self.thermal_dissipation = 33.3564  # 70
+            self.electronic_dephasing = 333.564
+        #0.1, 1 ps rates - 
         self.taudiss = 1 / (1e-12 * self.thermal_dissipation * 100 * constant.c)
         self.taudeph = 1 / (1e-12 * self.electronic_dephasing * 100 * constant.c)
         
@@ -72,8 +78,8 @@ class DimerDetune:
         self.r_v2 = self.r_th  # 6 # cm-1
 
         #hilbert space defined according to max number of vibrational modes
-        self.N = n_vib_cutoff  # 7
-        self.dimH = 2 * n_vib_cutoff**2  # Hilbert space dimension
+        self.N = n_cutoff  # 7
+        self.dimH = 2 * n_cutoff**2  # Hilbert space dimension
 
         # Exciton Vectors
 
@@ -282,7 +288,7 @@ class Operations(DimerDetune):
 
 class Plots(Operations):
 
-    def figure14(self):
+    def sync_evol(self):
 
 
         b = self.destroy()
@@ -316,7 +322,7 @@ class Plots(Operations):
         axA.plot(t_ps[np.arange(st, en, itvl)], x2[np.arange(st, en, itvl)], label=r'$\langle X_2\rangle$')
         # plt.plot(t_ps[np.arange(st,en,itvl)],x2sq[np.arange(st,en,itvl)],label=r'$\langle X_2^2\rangle$')
         axA.plot(t_ps[np.arange(st, en, itvl)], x1[np.arange(st, en, itvl)], label=r'$\langle X_1\rangle$')
-        # plt.plot(t_ps[np.arange(st,en,itvl)],x1sq[np.arange(st,en,itvl)],label=r'$\langle X_1^2\rangle$')
+        #plt.plot(t_ps[np.arange(st,en,itvl)],x1sq[np.arange(st,en,itvl)],label=r'$\langle X_1^2\rangle$')
         # plt.plot(t_ps[np.arange(0,en,itvl)],c_Xsq12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1^2\rangle\langle x_2^2\rangle}$')
         # plt.plot(t_ps[np.arange(0,en,itvl)],c_nsq12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1^2\rangle\langle n_2^2\rangle}$')
         # plt.plot(t_ps[np.arange(0,en,itvl)],c_n12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1\rangle\langle n_2\rangle}$')
@@ -339,16 +345,165 @@ class Plots(Operations):
         # plt.savefig('cXX_dw004_QC.pdf',bbox_inches='tight',dpi=600,format='pdf',transparent=True)
 
 
+    def coherences(self):
+        b = self.destroy()
+        Iv = self.identity_vib()
+        Ie = sp.eye(2, 2).tocsr()
+        oB1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
+        oB2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
+        oX2 = oB2 + oB2.getH()
+        oX1 = oB1 + oB1.getH()
+
+
+        H= self.hamiltonian()
+        vals, eigs = np.linalg.eigh(H.todense())
+        oX1eig = eigs.getH() * oX1 * eigs
+
+        M1thermal = self.thermal(self.w1)
+        M2thermal = self.thermal(self.w2)
+        oE2 = sp.kron(self.E2, self.E2.getH()).tocsr()
+        P0 = sp.kron(oE2, sp.kron(M1thermal, M2thermal)).todense()
+
+
+
+        opsi01 = np.kron(eigs[:, 0], eigs[:, 1].getH())
+
+        opsi10 = np.kron(eigs[:, 1], eigs[:, 0].getH())
+
+        opsi03 = np.kron(eigs[:, 0], eigs[:, 3].getH())
+
+        opsi14 = np.kron(eigs[:, 1], eigs[:, 4].getH())
+
+        opsi13 = np.kron(eigs[:, 1], eigs[:, 3].getH())
+
+        opsi16 = np.kron(eigs[:, 1], eigs[:, 6].getH())
+
+        opsi25 = np.kron(eigs[:, 2], eigs[:, 5].getH())
+
+        opsi36 = np.kron(eigs[:, 3], eigs[:, 6].getH())
+
+        opsi27 = np.kron(eigs[:, 2], eigs[:, 7].getH())
+
+        opsi28 = np.kron(eigs[:, 2], eigs[:, 8].getH())
+
+        opsi38 = np.kron(eigs[:, 3], eigs[:, 8].getH())
+
+        opsi02 = np.kron(eigs[:, 0], eigs[:, 2].getH())
+
+        opsi15 = np.kron(eigs[:, 1], eigs[:, 5].getH())
+
+        opsi26 = np.kron(eigs[:, 2], eigs[:, 6].getH())
+
+        opsi37 = np.kron(eigs[:, 3], eigs[:, 7].getH())
+
+        t0 = 0  # start time
+
+        tmax_ps = 2
+
+        tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
+
+        dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
+                                                        # automatically choose the best time step for calculation.
+
+        steps = np.int((tmax - t0) / dt)  # total number of steps. Must be int.
+
+        rhoT, t = self.time_evol_me(t0, tmax_ps, dt=dt)
+
+        t_cm = t / (2 * constant.pi)
+        t_ps = (t_cm * 1e12) / (100 * constant.c)
+
+
+        psi01 = np.zeros((steps), dtype=complex)
+        for i in np.arange(steps):
+            psi01[i] = np.trace(opsi01.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+        
+        psi02 = np.zeros((steps), dtype=complex)
+        for i in np.arange(steps):
+            psi02[i] = np.trace(opsi02.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+
+        psi03 = np.zeros((steps), dtype=complex)
+        for i in np.arange(steps):
+            psi03[i] = np.trace(opsi03.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+
+        psi14 = np.zeros((steps), dtype=complex)
+        for i in np.arange(steps):
+            psi14[i] = np.trace(opsi14.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+
+        psi15 = np.zeros((steps), dtype=complex)
+        for i in np.arange(steps):
+            psi15[i] = np.trace(opsi15.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+
+        psi37 = np.zeros((steps), dtype=complex)
+        for i in np.arange(steps):
+            psi37[i] = np.trace(opsi37.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+
+        psi38 = np.zeros((steps), dtype=complex)
+        for i in np.arange(steps):
+            psi38[i] = np.trace(opsi38.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+
+        psi13 = np.zeros((steps), dtype=complex)
+        for i in np.arange(steps):
+            psi13[i] = np.trace(opsi13.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+
+        FigureB = plt.figure(5)
+        plt.xlabel('Time ($ps$)')
+        plt.grid()
+
+        plt.legend(bbox_to_anchor=([1, 1]))
+
+        st = 0000
+        en = 12000
+
+        N= self.n_cutoff
+        omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2).transpose()
+
+        f13 = np.round(np.abs(omegaarray[1, 3]), decimals=2)
+        f01 = np.round(np.abs(omegaarray[0, 1]), decimals=2)
+        f02 = np.round(np.abs(omegaarray[0, 2]), decimals=2)
+        f03 = np.round(np.abs(omegaarray[0, 3]), decimals=2)
+        f14 = np.round(np.abs(omegaarray[1, 4]), decimals=2)
+        f15 = np.round(np.abs(omegaarray[1, 5]), decimals=2)
+        f37 = np.round(np.abs(omegaarray[3, 7]), decimals=2)
+        f38 = np.round(np.abs(omegaarray[3, 8]), decimals=2)
+        f13 = np.round(np.abs(omegaarray[1, 3]), decimals=2)
+
+        
+
+
+        plt.plot(t_ps[st:en], np.abs(oX1eig[0, 1]) * np.abs(psi01[st:en]), label=r'$\Omega_{01} =$' + str(f01))
+        plt.plot(t_ps[st:en], np.abs(oX1eig[0, 2]) * np.abs(psi02[st:en]), label=r'$\Omega_{02} =$' + str(f02))
+        plt.plot(t_ps[st:en], np.abs(oX1eig[0, 3]) * np.abs(psi03[st:en]), label=r'$\Omega_{03} =$' + str(f03))
+        plt.plot(t_ps[st:en], np.abs(oX1eig[1, 4]) * np.abs(psi14[st:en]), label=r'$\Omega_{14} =$' + str(f14))
+        plt.plot(t_ps[st:en], np.abs(oX1eig[1, 5]) * np.abs(psi15[st:en]), label=r'$\Omega_{15} =$' + str(f15))
+        plt.plot(t_ps[st:en], np.abs(oX1eig[3, 7]) * np.abs(psi37[st:en]), label=r'$\Omega_{37} =$' + str(f37))
+        plt.plot(t_ps[st:en], np.abs(oX1eig[3, 8]) * np.abs(psi38[st:en]), label=r'$\Omega_{38} =$' + str(f38))
+        plt.plot(t_ps[st:en], np.abs(oX1eig[1, 3]) * np.abs(psi13[st:en]), label=r'$\Omega_{13} =$' + str(f13))
+
+        
+
+        #plt.ylim(-0.005,0.02)
+
+        
+
+        plt.title(r'$\omega_2$ = ' + np.str(np.round(self.w2, decimals=2)) + ' $\omega_1$ = ' + np.str(
+            np.round(self.w1, decimals=2)))  # $\omega=1530cm^{-1}$')
+
+        # plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
+
+        plt.show()
+
+
 if __name__ == "__main__":
-    n_cutoff = 3   # this is the maximim occupation of the vibrational mode
-    # dimer = DimerDetune(n_cutoff, 300)
-    # ops = Operations(n_cutoff, 300)  # this takes the same inputs as DimerDetune
+    #n_cutoff = 5  # this is the maximim occupation of the vibrational mode
+    # dimer = DimerDetune(n_cutoff, 298)
+    # ops = Operations(dimer)  # this takes the same inputs as DimerDetune
     #rho0 = ops.steady_state()
     # rhoT = ops.time_evol_me(0, 3, dt=None)
     # print(rhoT)
 
     # plotting figure 14 (rename this something more descriptive of the output)
-    plots_class = Plots(n_cutoff, 300)
-    plots_class.figure14()
+    plot = Plots(rate_swap=False)
+    #plot.sync_evol()
+    plot.coherences()
     plt.show()
 
