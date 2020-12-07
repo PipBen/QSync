@@ -32,7 +32,8 @@ import time
 
 import scipy.sparse as sp
 
-# from scripts import QCcorrelations as QC
+
+#from scripts import QCcorrelations as QC
 
 # %% Define Parameters all in cm-1
 
@@ -64,6 +65,8 @@ a = 1
 g1 = w1 * np.sqrt(huang) * a
 
 g2 = w2 * np.sqrt(huang) * a
+
+##ALTERNATIVE PARAMETER REGIME 
 
 # heta = 0.5
 
@@ -99,15 +102,16 @@ g2 = w2 * np.sqrt(huang) * a
 
 # g = 0
 
+## Maximum amplitude
 
 # coh = 1/(1+((dE-omega)/(2*g*np.sin(2*theta)))**2)
 
 
 kBT = (constant.k * (298)) / (constant.h * constant.c * 100)  # cm-1
 
-thermal_dissipation = 333.3564  # 70
+thermal_dissipation = 33.3564  # 70
 
-electronic_dephasing = 33.564
+electronic_dephasing = 333.564
 
 # taudiss = 1 / (1e-12 * thermal_dissipation * 100 * constant.c)
 
@@ -989,7 +993,7 @@ itvl = 5
 
 # counta = time.time()
 
-#
+
 
 # q_mutual = []
 
@@ -1001,7 +1005,7 @@ itvl = 5
 
 # maxstep = np.int(np.round(8*dtperps))
 
-#
+
 
 # for i in np.arange(0,maxstep,100):
 
@@ -1019,7 +1023,7 @@ itvl = 5
 
 #    print(i)
 
-#
+
 
 # q_mutual = np.array(q_mutual)
 
@@ -1029,7 +1033,7 @@ itvl = 5
 
 # corr_times = np.array(corr_times)
 
-#
+
 
 # countb = time.time()
 
@@ -1714,29 +1718,29 @@ plt.legend()
 
 # plt.plot(t_ps[np.arange(st,en)],bb2[np.arange(st,en)],label=r'$\langle n_2 \rangle$')
 
-##plt.plot(t_ps[np.arange(st,en)],bb2sq[np.arange(st,en)],label=r'$\langle n_2^2 \rangle$')
+# #plt.plot(t_ps[np.arange(st,en)],bb2sq[np.arange(st,en)],label=r'$\langle n_2^2 \rangle$')
 
 # plt.plot(t_ps[np.arange(st,en)],bb1[np.arange(st,en)],label=r'$\langle n_1 \rangle$')
 
-##plt.plot(t_ps[np.arange(st,en)],bb1sq[np.arange(st,en)],label=r'$\langle n_1^2 \rangle$')
+# plt.plot(t_ps[np.arange(st,en)],bb1sq[np.arange(st,en)],label=r'$\langle n_1^2 \rangle$')
 
-##plt.plot(t_ps[np.arange(st,en)],(bb1sq-bb1**2)[np.arange(st,en)],label=r'$\langle n_1^2 \rangle - \langle n_1 \rangle^2$')
+# plt.plot(t_ps[np.arange(st,en)],(bb1sq-bb1**2)[np.arange(st,en)],label=r'$\langle n_1^2 \rangle - \langle n_1 \rangle^2$')
 
-##plt.plot(t_ps[np.arange(st,en)],(bb2sq-bb2**2)[np.arange(st,en)],label=r'$\langle n_2^2 \rangle - \langle n_2 \rangle^2$')
+# plt.plot(t_ps[np.arange(st,en)],(bb2sq-bb2**2)[np.arange(st,en)],label=r'$\langle n_2^2 \rangle - \langle n_2 \rangle^2$')
 
-##plt.plot(t_ps[np.arange(st,en)],q_n2[np.arange(st,en)],label=r'$Q(n_2)$')
+# plt.plot(t_ps[np.arange(st,en)],q_n2[np.arange(st,en)],label=r'$Q(n_2)$')
 
-##plt.plot(t_ps[np.arange(st,en)],q_n1[np.arange(st,en)],label=r'$Q(n_1)$')
+# plt.plot(t_ps[np.arange(st,en)],q_n1[np.arange(st,en)],label=r'$Q(n_1)$')
 
-##plt.plot(t_ps[np.arange(0,en,itvl)],c_n12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle bb_1\rangle\langle bb_2\rangle}$')
+# plt.plot(t_ps[np.arange(0,en,itvl)],c_n12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle bb_1\rangle\langle bb_2\rangle}$')
 
-##plt.plot(t_ps[np.arange(st,en,itvl)],c_nsq12[np.arange(st,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1^2 \rangle\langle n_2^2\rangle}$')
+# plt.plot(t_ps[np.arange(st,en,itvl)],c_nsq12[np.arange(st,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1^2 \rangle\langle n_2^2\rangle}$')
 
-##plt.ylabel('Population of Modes')
+# plt.ylabel('Population of Modes')
 
 # plt.xlabel('Time (ps)')
 
-##plt.yticks([-0.1,0,0.1])
+# #plt.yticks([-0.1,0,0.1])
 
 # plt.legend()
 
@@ -1807,7 +1811,7 @@ plt.legend()
 
 
 # %%
-
+#ENERGY TRANSFER
 plt.figure(7)
 
 st = 0000
@@ -1822,11 +1826,11 @@ plt.plot(t_ps[0:en], ex2[0:en], label=r'$|E_{2}\rangle\langle E_{2}|$')
 
 plt.plot(t_ps[0:en], ex12[0:en], label=r'$||E_{1}\rangle\langle E_{2}||$')
 
-# plt.plot(t_ps[0:en],ex12_00[0:en],label=r'$|E_{1}00\rangle\langle E_{2}00|$')
+#plt.plot(t_ps[0:en],ex12_00[0:en],label=r'$|E_{1}00\rangle\langle E_{2}00|$')
 
-# plt.plot(t_ps[np.arange(0,en,itvl)],c_X12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+plt.plot(t_ps[np.arange(0,en,itvl)],c_X12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
 
-# plt.plot(t_ps[0:en],ex21[0:en],label='abs($E_{21}$)')
+#plt.plot(t_ps[0:en],ex21[0:en],label='abs($E_{21}$)')
 
 # plt.plot(t_ps[st:en],sigZ[st:en],label='$\sigma_Z$')
 
@@ -1859,37 +1863,37 @@ plt.legend()
 
 # en = 10000 #P_el.shape[2]
 
-##plt.plot(t_ps[0:en],psi15[0:en],label='Re|$\psi_{1}$><$\psi_{5}$|')
+# #plt.plot(t_ps[0:en],psi15[0:en],label='Re|$\psi_{1}$><$\psi_{5}$|')
 
 # plt.plot(t_ps[st:en],psi14r[st:en],label='Re|$\psi_{1}$><$\psi_{4}$|')
 
 # plt.plot(t_ps[st:en],psi02r[st:en],label='Re|$\psi_{0}$><$\psi_{2}$|')
 
-##plt.plot(t_ps[0:en],psi37[0:en],label='Re|$\psi_{3}$><$\psi_{7}$|')
+# #plt.plot(t_ps[0:en],psi37[0:en],label='Re|$\psi_{3}$><$\psi_{7}$|')
 
 # plt.plot(t_ps[st:en],psi03r[st:en],label='Re|$\psi_{0}$><$\psi_{3}$|')
 
 # plt.plot(t_ps[st:en],psi01r[st:en],label='Re|$\psi_{0}$><$\psi_{1}$|')
 
-#
 
-##plt.plot(t_ps[0:en],psi13[0:en],label='Re|$\psi_{1}$><$\psi_{3}$|')
 
-##plt.plot(t_ps[0:en],psi26[0:en],label='Re|$\psi_{2}$><$\psi_{6}$|')
+# #plt.plot(t_ps[0:en],psi13[0:en],label='Re|$\psi_{1}$><$\psi_{3}$|')
 
-#
+# #plt.plot(t_ps[0:en],psi26[0:en],label='Re|$\psi_{2}$><$\psi_{6}$|')
 
-##plt.plot(t_ps[0:en],ex2[0:en],label='|$E_{2}$><$E_{2}$|')
 
-##plt.plot(t_ps[0:en],ex12[0:en],label='|$E_{1}$><$E_{2}$|')
 
-##plt.plot(t_ps[0:en],ex21[0:en],label='abs($E_{21}$)')
+# #plt.plot(t_ps[0:en],ex2[0:en],label='|$E_{2}$><$E_{2}$|')
 
-##plt.plot(t_ps[st:en],sigZ[st:en],label='$\sigma_Z$')
+# #plt.plot(t_ps[0:en],ex12[0:en],label='|$E_{1}$><$E_{2}$|')
 
-##plt.plot(t_ps[0:en],ex12m0m0[0:en],label='$E_{12}m_0m_0$')
+# #plt.plot(t_ps[0:en],ex21[0:en],label='abs($E_{21}$)')
 
-##plt.ylabel('Population')
+# #plt.plot(t_ps[st:en],sigZ[st:en],label='$\sigma_Z$')
+
+# #plt.plot(t_ps[0:en],ex12m0m0[0:en],label='$E_{12}m_0m_0$')
+
+# #plt.ylabel('Population')
 
 # plt.xlabel('Time ($ps$)')
 
@@ -1899,88 +1903,88 @@ plt.legend()
 
 # plt.title('Eigenstate Coherence Oscillations')
 
-##plt.savefig('El_dw10_3V',dpi=300)
+#plt.savefig('El_dw10_3V',dpi=300)
 
-##plt.savefig('X_coherences',bbox_inches='tight',dpi=300)
-
-
-# %%
-
-# plt.figure(5)
-
-# st = 00
-
-# en = 13000
-
-# plt.plot(t_ps[st:en],oX1eig[0,1]*np.real(psi01[st:en]),label=r'$\Omega_{01} =$'+str(f01))
-
-# plt.plot(t_ps[st:en],oX1eig[0,2]*np.real(psi02[st:en]),label=r'$\Omega_{02} =$'+str(f02))
-
-# plt.plot(t_ps[st:en],oX1eig[0,3]*np.real(psi03[st:en]),label=r'$\Omega_{03} =$'+str(f03))
-
-# plt.plot(t_ps[st:en],oX1eig[1,4]*np.real(psi14[st:en]),label=r'$\Omega_{14} =$'+str(f14))
-
-# plt.plot(t_ps[st:en],oX1eig[1,5]*np.real(psi15[st:en]),label=r'$\Omega_{15} =$'+str(f15))
-
-# plt.plot(t_ps[st:en],oX1eig[3,7]*np.real(psi37[st:en]),label=r'$\Omega_{37} =$'+str(f37))
-
-# plt.plot(t_ps[st:en],oX1eig[3,8]*np.real(psi38[st:en]),label=r'$\Omega_{38} =$'+str(f38))
-
-# plt.plot(t_ps[st:en],oX1eig[1,3]*np.real(psi13[st:en]),label=r'$\Omega_{13} =$'+str(f13))
-
-#
-
-#
-
-#
-
-# plt.xlabel('Time ($ps$)')
-
-# plt.grid()
-
-# plt.legend(bbox_to_anchor=([1,1]))
-
-# plt.title(r'$\omega_2$ = ' + np.str(np.round(w2,decimals=2))+ ' $\omega_1$ = ' + np.str(np.round(w1,decimals=2))) #$\omega=1530cm^{-1}$')
-
-##plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
+#plt.savefig('X_coherences',bbox_inches='tight',dpi=300)
 
 
 # %%
 
 plt.figure(5)
 
-st = 0000
+st = 00
 
-en = 12000
+en = 13000
 
-plt.plot(t_ps[st:en], np.abs(oX1eig[0, 1]) * np.abs(psi01[st:en]), label=r'$\Omega_{01} =$' + str(f01))
+plt.plot(t_ps[st:en],oX1eig[0,1]*np.real(psi01[st:en]),label=r'$\Omega_{01} =$'+str(f01))
 
-plt.plot(t_ps[st:en], np.abs(oX1eig[0, 2]) * np.abs(psi02[st:en]), label=r'$\Omega_{02} =$' + str(f02))
+plt.plot(t_ps[st:en],oX1eig[0,2]*np.real(psi02[st:en]),label=r'$\Omega_{02} =$'+str(f02))
 
-plt.plot(t_ps[st:en], np.abs(oX1eig[0, 3]) * np.abs(psi03[st:en]), label=r'$\Omega_{03} =$' + str(f03))
+plt.plot(t_ps[st:en],oX1eig[0,3]*np.real(psi03[st:en]),label=r'$\Omega_{03} =$'+str(f03))
 
-plt.plot(t_ps[st:en], np.abs(oX1eig[1, 4]) * np.abs(psi14[st:en]), label=r'$\Omega_{14} =$' + str(f14))
+plt.plot(t_ps[st:en],oX1eig[1,4]*np.real(psi14[st:en]),label=r'$\Omega_{14} =$'+str(f14))
 
-plt.plot(t_ps[st:en], np.abs(oX1eig[1, 5]) * np.abs(psi15[st:en]), label=r'$\Omega_{15} =$' + str(f15))
+plt.plot(t_ps[st:en],oX1eig[1,5]*np.real(psi15[st:en]),label=r'$\Omega_{15} =$'+str(f15))
 
-plt.plot(t_ps[st:en], np.abs(oX1eig[3, 7]) * np.abs(psi37[st:en]), label=r'$\Omega_{37} =$' + str(f37))
+plt.plot(t_ps[st:en],oX1eig[3,7]*np.real(psi37[st:en]),label=r'$\Omega_{37} =$'+str(f37))
 
-plt.plot(t_ps[st:en], np.abs(oX1eig[3, 8]) * np.abs(psi38[st:en]), label=r'$\Omega_{38} =$' + str(f38))
+plt.plot(t_ps[st:en],oX1eig[3,8]*np.real(psi38[st:en]),label=r'$\Omega_{38} =$'+str(f38))
 
-plt.plot(t_ps[st:en], np.abs(oX1eig[1, 3]) * np.abs(psi13[st:en]), label=r'$\Omega_{13} =$' + str(f13))
+plt.plot(t_ps[st:en],oX1eig[1,3]*np.real(psi13[st:en]),label=r'$\Omega_{13} =$'+str(f13))
+
+
+
+
+
+
 
 plt.xlabel('Time ($ps$)')
 
-# plt.ylim(-0.005,0.1)
-
 plt.grid()
 
-plt.legend(bbox_to_anchor=([1, 1]))
+plt.legend(bbox_to_anchor=([1,1]))
 
-plt.title(r'$\omega_2$ = ' + np.str(np.round(w2, decimals=2)) + ' $\omega_1$ = ' + np.str(
-    np.round(w1, decimals=2)))  # $\omega=1530cm^{-1}$')
+plt.title(r'$\omega_2$ = ' + np.str(np.round(w2,decimals=2))+ ' $\omega_1$ = ' + np.str(np.round(w1,decimals=2))) #$\omega=1530cm^{-1}$')
 
-# plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
+##plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
+
+
+# %%
+
+# plt.figure(5)
+
+# st = 0000
+
+# en = 12000
+
+# plt.plot(t_ps[st:en], np.abs(oX1eig[0, 1]) * np.abs(psi01[st:en]), label=r'$\Omega_{01} =$' + str(f01))
+
+# plt.plot(t_ps[st:en], np.abs(oX1eig[0, 2]) * np.abs(psi02[st:en]), label=r'$\Omega_{02} =$' + str(f02))
+
+# plt.plot(t_ps[st:en], np.abs(oX1eig[0, 3]) * np.abs(psi03[st:en]), label=r'$\Omega_{03} =$' + str(f03))
+
+# plt.plot(t_ps[st:en], np.abs(oX1eig[1, 4]) * np.abs(psi14[st:en]), label=r'$\Omega_{14} =$' + str(f14))
+
+# plt.plot(t_ps[st:en], np.abs(oX1eig[1, 5]) * np.abs(psi15[st:en]), label=r'$\Omega_{15} =$' + str(f15))
+
+# plt.plot(t_ps[st:en], np.abs(oX1eig[3, 7]) * np.abs(psi37[st:en]), label=r'$\Omega_{37} =$' + str(f37))
+
+# plt.plot(t_ps[st:en], np.abs(oX1eig[3, 8]) * np.abs(psi38[st:en]), label=r'$\Omega_{38} =$' + str(f38))
+
+# plt.plot(t_ps[st:en], np.abs(oX1eig[1, 3]) * np.abs(psi13[st:en]), label=r'$\Omega_{13} =$' + str(f13))
+
+# plt.xlabel('Time ($ps$)')
+
+# # plt.ylim(-0.005,0.1)
+
+# plt.grid()
+
+# plt.legend(bbox_to_anchor=([1, 1]))
+
+# plt.title(r'$\omega_2$ = ' + np.str(np.round(w2, decimals=2)) + ' $\omega_1$ = ' + np.str(
+#     np.round(w1, decimals=2)))  # $\omega=1530cm^{-1}$')
+
+# # plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
 
 plt.show()
 # %%
@@ -2007,15 +2011,15 @@ plt.show()
 
 # plt.plot(t_ps[st:en],np.abs(psi13[st:en]),label=r'$\Omega_{13} =$'+str(f13))
 
-#
 
-#
 
-#
+
+
+
 
 # plt.xlabel('Time ($ps$)')
 
-##plt.ylim(-0.005,0.1)
+# #plt.ylim(-0.005,0.1)
 
 # plt.grid()
 
@@ -2050,11 +2054,11 @@ plt.show()
 
 # plt.plot(t_ps[st:en],oX2eig[1,3]*np.real(psi13[st:en]),label=r'$\Omega_{13} =$'+str(f13))
 
-#
 
-#
 
-#
+
+
+
 
 # plt.xlabel('Time ($ps$)')
 
@@ -2064,7 +2068,7 @@ plt.show()
 
 # plt.title(r'$\omega_2$ = ' + np.str(np.round(w2,decimals=2))+ ' $\omega_1$ = ' + np.str(np.round(w1,decimals=2))) #$\omega=1530cm^{-1}$')
 
-##plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
+#plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
 
 
 # %%

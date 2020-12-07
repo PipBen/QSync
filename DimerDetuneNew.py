@@ -300,13 +300,13 @@ class Plots(Operations):
         oX1 = oB1 + oB1.getH()
 
         t0 = 0
-        tmaxps = 4.
+        tmax_ps = 4.
         dt = ((2 * constant.pi) / self.omega) / 100
         # t_cm = t / (2 * constant.pi)
         # t_ps = (t_cm * 1e12) / (100 * constant.c)
 
-        x1, t = self.oper_evol(oX1, t0, tmaxps, dt)
-        x2, _ = self.oper_evol(oX2, t0, tmaxps, dt)  # can also pass a time step if necessary
+        x1, t = self.oper_evol(oX1, t0, tmax_ps, dt)
+        x2, _ = self.oper_evol(oX2, t0, tmax_ps, dt)  # can also pass a time step if necessary
 
         t_cm = t / (2 * constant.pi)
         t_ps = (t_cm * 1e12) / (100 * constant.c)
@@ -449,7 +449,7 @@ class Plots(Operations):
         plt.xlabel('Time ($ps$)')
         plt.grid()
 
-        plt.legend(bbox_to_anchor=([1, 1]))
+        
 
         st = 0000
         en = 12000
@@ -483,14 +483,105 @@ class Plots(Operations):
 
         #plt.ylim(-0.005,0.02)
 
-        
+        plt.legend(bbox_to_anchor=([1, 1]))
 
         plt.title(r'$\omega_2$ = ' + np.str(np.round(self.w2, decimals=2)) + ' $\omega_1$ = ' + np.str(
             np.round(self.w1, decimals=2)))  # $\omega=1530cm^{-1}$')
 
         # plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
 
-        plt.show()
+    def energy_transfer(self):
+        plt.figure(7)
+
+        Iv = self.identity_vib()
+        b = self.destroy()
+        Iv = self.identity_vib()
+        Ie = sp.eye(2, 2).tocsr()
+        oB1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
+        oB2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
+        oX2 = oB2 + oB2.getH()
+        oX1 = oB1 + oB1.getH()
+
+        st = 0000
+        en = 13000  # P_el.shape[2]
+        itvl = 3    #time interval?
+
+
+        t0 = 0  # start time
+        tmax_ps = 4
+        tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
+        dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
+                                                        # automatically choose the best time step for calculation.
+        steps = np.int((tmax - t0) / dt)  # total number of steps. Must be int.
+
+        rhoT, t = self.time_evol_me(t0, tmax_ps, dt=dt)
+
+        t_cm = t / (2 * constant.pi)
+        t_ps = (t_cm * 1e12) / (100 * constant.c)
+
+        #COULD MOVE THESE INTO INIT
+        oE1 = self.exciton_operator(1, 1)
+        oE2 = self.exciton_operator(2, 2)
+        oE1E2 = self.exciton_operator(1, 2)
+
+        oE1mImI = sp.kron(oE1, sp.kron(Iv, Iv)).tocsr()
+        oE2mImI = sp.kron(oE2, sp.kron(Iv, Iv)).tocsr()
+        oE1E2mImI = sp.kron(oE1E2, sp.kron(Iv, Iv)).tocsr()
+
+        M1thermal = self.thermal(self.w1)
+        M2thermal = self.thermal(self.w2)
+        oE2 = sp.kron(self.E2, self.E2.getH()).tocsr()
+        P0 = sp.kron(oE2, sp.kron(M1thermal, M2thermal)).todense()
+
+        ex1 = np.zeros((steps))
+        for i in np.arange(steps):
+            ex1[i] = np.real(np.trace(oE1mImI.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
+
+        ex2 = np.zeros((steps))
+        for i in np.arange(steps):
+            ex2[i] = np.real(np.trace(oE2mImI.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
+
+        ex12 = np.zeros((steps))
+        for i in np.arange(steps):
+            ex12[i] = np.abs(np.trace(oE1E2mImI.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
+
+        x1, t = self.oper_evol(oX1, t0, tmax_ps, dt)
+        x2, _ = self.oper_evol(oX2, t0, tmax_ps, dt)  # can also pass a time step if necessary
+        elta = np.int(np.round(((2 * constant.pi) / self.omega) / dt))
+        c_X12 = self.corrfunc(x1, x2, elta)
+
+
+        print(t_ps.shape)
+        print(c_X12.shape)
+        print(np.arange(0,en,itvl).shape)
+        print(np.arange(0,en,itvl).shape)
+
+        plt.plot(t_ps[0:en], ex1[0:en], label=r'$|E_{1}\rangle\langle E_{1}|$')
+        plt.plot(t_ps[0:en], ex2[0:en], label=r'$|E_{2}\rangle\langle E_{2}|$')
+        plt.plot(t_ps[0:en], ex12[0:en], label=r'$||E_{1}\rangle\langle E_{2}||$')
+        plt.plot(t_ps[np.arange(0,en,itvl)],c_X12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+        #plt.plot(t_ps[0:en],ex12_00[0:en],label=r'$|E_{1}00\rangle\langle E_{2}00|$')
+
+        
+
+        #plt.plot(t_ps[0:en],ex21[0:en],label='abs($E_{21}$)')
+
+        # plt.plot(t_ps[st:en],sigZ[st:en],label='$\sigma_Z$')
+
+        # plt.plot(t_ps[0:en],ex12m0m0[0:en],label='$E_{12}m_0m_0$')
+
+        # plt.ylabel('Population')
+
+        plt.xlabel('Time ($ps$)')
+
+        # plt.xlim([0,5])
+
+        plt.grid()
+
+        # plt.legend(bbox_to_anchor=[1,1])
+
+        plt.legend()
+
 
 
 if __name__ == "__main__":
@@ -502,8 +593,10 @@ if __name__ == "__main__":
     # print(rhoT)
 
     # plotting figure 14 (rename this something more descriptive of the output)
-    plot = Plots(rate_swap=False)
-    #plot.sync_evol()
-    plot.coherences()
+    plot = Plots(rate_swap=True)
+    # plot.sync_evol()
+    # plot.coherences()
+    plot.energy_transfer()
+
     plt.show()
 
