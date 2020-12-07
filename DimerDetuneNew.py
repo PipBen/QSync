@@ -12,6 +12,7 @@ To do:
 Replace np.matrix (depreciated) with np.array throughout - this doesn't have a getH method, so will need
 .conj().transpose() I think
 
+Define regulary used arrays inside init
 """
 import numpy as np
 import scipy.constants as constant
@@ -367,51 +368,40 @@ class Plots(Operations):
 
 
         opsi01 = np.kron(eigs[:, 0], eigs[:, 1].getH())
-
         opsi10 = np.kron(eigs[:, 1], eigs[:, 0].getH())
-
         opsi03 = np.kron(eigs[:, 0], eigs[:, 3].getH())
-
         opsi14 = np.kron(eigs[:, 1], eigs[:, 4].getH())
-
         opsi13 = np.kron(eigs[:, 1], eigs[:, 3].getH())
-
         opsi16 = np.kron(eigs[:, 1], eigs[:, 6].getH())
-
         opsi25 = np.kron(eigs[:, 2], eigs[:, 5].getH())
-
         opsi36 = np.kron(eigs[:, 3], eigs[:, 6].getH())
-
         opsi27 = np.kron(eigs[:, 2], eigs[:, 7].getH())
-
         opsi28 = np.kron(eigs[:, 2], eigs[:, 8].getH())
-
         opsi38 = np.kron(eigs[:, 3], eigs[:, 8].getH())
-
         opsi02 = np.kron(eigs[:, 0], eigs[:, 2].getH())
-
         opsi15 = np.kron(eigs[:, 1], eigs[:, 5].getH())
-
         opsi26 = np.kron(eigs[:, 2], eigs[:, 6].getH())
-
         opsi37 = np.kron(eigs[:, 3], eigs[:, 7].getH())
 
+
+        
         t0 = 0  # start time
-
         tmax_ps = 2
-
         tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
-
         dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
                                                         # automatically choose the best time step for calculation.
-
-        steps = np.int((tmax - t0) / dt)  # total number of steps. Must be int.
-
+        
         rhoT, t = self.time_evol_me(t0, tmax_ps, dt=dt)
-
+        
         t_cm = t / (2 * constant.pi)
         t_ps = (t_cm * 1e12) / (100 * constant.c)
 
+        steps = np.int((tmax - t0) / dt)  # total number of steps. Must be int.
+
+        
+
+
+        
 
         psi01 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
@@ -449,8 +439,6 @@ class Plots(Operations):
         plt.xlabel('Time ($ps$)')
         plt.grid()
 
-        
-
         st = 0000
         en = 12000
 
@@ -467,9 +455,6 @@ class Plots(Operations):
         f38 = np.round(np.abs(omegaarray[3, 8]), decimals=2)
         f13 = np.round(np.abs(omegaarray[1, 3]), decimals=2)
 
-        
-
-
         plt.plot(t_ps[st:en], np.abs(oX1eig[0, 1]) * np.abs(psi01[st:en]), label=r'$\Omega_{01} =$' + str(f01))
         plt.plot(t_ps[st:en], np.abs(oX1eig[0, 2]) * np.abs(psi02[st:en]), label=r'$\Omega_{02} =$' + str(f02))
         plt.plot(t_ps[st:en], np.abs(oX1eig[0, 3]) * np.abs(psi03[st:en]), label=r'$\Omega_{03} =$' + str(f03))
@@ -479,12 +464,8 @@ class Plots(Operations):
         plt.plot(t_ps[st:en], np.abs(oX1eig[3, 8]) * np.abs(psi38[st:en]), label=r'$\Omega_{38} =$' + str(f38))
         plt.plot(t_ps[st:en], np.abs(oX1eig[1, 3]) * np.abs(psi13[st:en]), label=r'$\Omega_{13} =$' + str(f13))
 
-        
-
         #plt.ylim(-0.005,0.02)
-
         plt.legend(bbox_to_anchor=([1, 1]))
-
         plt.title(r'$\omega_2$ = ' + np.str(np.round(self.w2, decimals=2)) + ' $\omega_1$ = ' + np.str(
             np.round(self.w1, decimals=2)))  # $\omega=1530cm^{-1}$')
 
@@ -562,25 +543,96 @@ class Plots(Operations):
         plt.plot(t_ps[np.arange(0,en,itvl)],c_X12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
         #plt.plot(t_ps[0:en],ex12_00[0:en],label=r'$|E_{1}00\rangle\langle E_{2}00|$')
 
-        
-
-        #plt.plot(t_ps[0:en],ex21[0:en],label='abs($E_{21}$)')
-
-        # plt.plot(t_ps[st:en],sigZ[st:en],label='$\sigma_Z$')
-
-        # plt.plot(t_ps[0:en],ex12m0m0[0:en],label='$E_{12}m_0m_0$')
-
-        # plt.ylabel('Population')
-
         plt.xlabel('Time ($ps$)')
-
         # plt.xlim([0,5])
-
         plt.grid()
-
         # plt.legend(bbox_to_anchor=[1,1])
-
         plt.legend()
+
+    def fourier(self):
+
+        H= self.hamiltonian()
+        vals, eigs = np.linalg.eigh(H.todense())
+
+        Iv = self.identity_vib()
+        Ie = sp.eye(2, 2).tocsr()
+        b = self.destroy()
+
+        M1thermal = self.thermal(self.w1)
+        M2thermal = self.thermal(self.w2)
+        oE2 = sp.kron(self.E2, self.E2.getH()).tocsr()
+        P0 = sp.kron(oE2, sp.kron(M1thermal, M2thermal)).todense()
+        P0eig = eigs.getH() * P0 * eigs
+        oB1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
+        oB2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
+
+        oX1 = oB1 + oB1.getH()
+        oX2 = oB2 + oB2.getH()
+        oX1eig = eigs.getH() * oX1 * eigs
+        oX2eig = eigs.getH() * oX2 * eigs
+        
+        coefx1 = np.multiply(oX1eig, P0eig)
+        coefx2 = np.multiply(oX2eig, P0eig)
+        
+        coefx1chop = np.tril(coefx1,k=-1)
+        coefx2chop = np.tril(coefx2,k=-1)
+        
+        t0 = 0  # start time
+        tmax_ps = 4
+        tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
+        dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
+                                                        # automatically choose the best time step for calculation.
+        steps = np.int((tmax - t0) / dt)  # total number of steps. Must be int.
+        rhoT, t = self.time_evol_me(t0, tmax_ps, dt=dt)
+        t_cm = t / (2 * constant.pi)
+
+        
+        N= self.n_cutoff
+        omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(
+        2 * N ** 2, 2 * N ** 2).transpose()
+        omegachop = np.tril(omegaarray,k=-1)
+
+        count4 = time.time()
+
+        sampleratecm = 1/(t_cm[1]-t_cm[0])
+        freqres1 = 0.5
+        ftlen = (t_cm[1]-t_cm[0])*np.arange(int(sampleratecm/freqres1))
+        anaX1array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
+        anaX2array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
+        anaX1 = np.zeros(np.size(ftlen))
+        anaX2 = np.zeros(np.size(ftlen))
+
+        for a in np.arange(np.size(ftlen)):
+            anaX1array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx1chop)
+            anaX1[a] = np.sum(anaX1array[:,:,a]) + np.trace(coefx1)
+            anaX2array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx2chop)
+            anaX2[a] = np.sum(anaX2array[:,:,a]) + np.trace(coefx2)
+
+        freqres2 = 0.1
+        pads = int((sampleratecm/freqres2)-np.shape(anaX1)[0]) #30000
+        x1pad = np.append(anaX1,np.zeros(pads))
+        x2pad = np.append(anaX2,np.zeros(pads))
+        fr10 = np.fft.rfft(x1pad,int(np.size(x1pad)))
+        fr20 = np.fft.rfft(x2pad,int(np.size(x2pad)))
+        freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
+
+        count5 = time.time()
+        print('Measurements =',count5-count4)
+
+        st = int(1100/(sampleratecm/np.size(x1pad)))
+        en = int(1130/(sampleratecm/np.size(x1pad)))
+
+        plt.figure(30)
+        plt.plot(freq_cm0[st:en],np.real(fr10)[st:en],label=r'$\langle X_1\rangle$')
+        plt.plot(freq_cm0[st:en],np.real(fr20)[st:en],label=r'$\langle X_2\rangle$')
+        plt.ylabel('Real Part of FT')
+        plt.xlabel('Frequency ($cm^{-1}$)')
+        plt.legend()
+        plt.grid(True,which='both')
+        plt.minorticks_on()
+        plt.yticks([0])
+        plt.title(r'Components of $\langle X\rangle$ at $T=2ps$')
+
 
 
 
@@ -593,10 +645,10 @@ if __name__ == "__main__":
     # print(rhoT)
 
     # plotting figure 14 (rename this something more descriptive of the output)
-    plot = Plots(rate_swap=True)
+    plot = Plots(rate_swap=False)
     # plot.sync_evol()
     # plot.coherences()
-    plot.energy_transfer()
-
+    #plot.energy_transfer()
+    plot.fourier()
     plt.show()
 

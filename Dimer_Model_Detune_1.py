@@ -479,16 +479,16 @@ scalexpsi01 = oX1eig[0, 1]
 
 ##
 
-# coefx1chop = np.tril(coefx1,k=-1)
+coefx1chop = np.tril(coefx1,k=-1)
 
-# coefx2chop = np.tril(coefx2,k=-1)
+coefx2chop = np.tril(coefx2,k=-1)
 
 ##
 
 omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(
     2 * N ** 2, 2 * N ** 2).transpose()
 
-# omegachop = np.tril(omegaarray,k=-1)
+omegachop = np.tril(omegaarray,k=-1)
 
 # anaX1array = np.zeros([2*N**2,2*N**2,np.size(t_cm)])
 
@@ -1121,89 +1121,89 @@ itvl = 5
 # %%
 
 
-# count4 = time.time()
+count4 = time.time()
+
+
+
+sampleratecm = 1/(t_cm[1]-t_cm[0])
+
+freqres1 = 0.5
+
+ftlen = (t_cm[1]-t_cm[0])*np.arange(int(sampleratecm/freqres1))
+
+
+
+anaX1array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
+
+anaX2array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
+
+anaX1 = np.zeros(np.size(ftlen))
+
+anaX2 = np.zeros(np.size(ftlen))
 
 #
 
-# sampleratecm = 1/(t_cm[1]-t_cm[0])
+for a in np.arange(np.size(ftlen)):
 
-# freqres1 = 0.5
+   anaX1array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx1chop)
 
-# ftlen = (t_cm[1]-t_cm[0])*np.arange(int(sampleratecm/freqres1))
+   anaX1[a] = np.sum(anaX1array[:,:,a]) + np.trace(coefx1)
 
-#
+   anaX2array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx2chop)
 
-# anaX1array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
+   anaX2[a] = np.sum(anaX2array[:,:,a]) + np.trace(coefx2)
 
-# anaX2array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
 
-# anaX1 = np.zeros(np.size(ftlen))
 
-# anaX2 = np.zeros(np.size(ftlen))
+freqres2 = 0.1
 
-##
+pads = int((sampleratecm/freqres2)-np.shape(anaX1)[0]) #30000
 
-# for a in np.arange(np.size(ftlen)):
+x1pad = np.append(anaX1,np.zeros(pads))
 
-#    anaX1array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx1chop)
+x2pad = np.append(anaX2,np.zeros(pads))
 
-#    anaX1[a] = np.sum(anaX1array[:,:,a]) + np.trace(coefx1)
+fr10 = np.fft.rfft(x1pad,int(np.size(x1pad)))
 
-#    anaX2array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx2chop)
+fr20 = np.fft.rfft(x2pad,int(np.size(x2pad)))
 
-#    anaX2[a] = np.sum(anaX2array[:,:,a]) + np.trace(coefx2)
+freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
 
-#
 
-# freqres2 = 0.1
 
-# pads = int((sampleratecm/freqres2)-np.shape(anaX1)[0]) #30000
+count5 = time.time()
 
-# x1pad = np.append(anaX1,np.zeros(pads))
-
-# x2pad = np.append(anaX2,np.zeros(pads))
-
-# fr10 = np.fft.rfft(x1pad,int(np.size(x1pad)))
-
-# fr20 = np.fft.rfft(x2pad,int(np.size(x2pad)))
-
-# freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
-
-#
-
-# count5 = time.time()
-
-# print('Measurements =',count5-count4)
+print('Measurements =',count5-count4)
 
 
 # %%
 
+#FOURIER
+st = int(1100/(sampleratecm/np.size(x1pad)))
 
-# st = int(1100/(sampleratecm/np.size(x1pad)))
+en = int(1130/(sampleratecm/np.size(x1pad)))
 
-# en = int(1130/(sampleratecm/np.size(x1pad)))
 
-#
 
-# plt.figure(30)
+plt.figure(30)
 
-# plt.plot(freq_cm0[st:en],np.real(fr10)[st:en],label=r'$\langle X_1\rangle$')
+plt.plot(freq_cm0[st:en],np.real(fr10)[st:en],label=r'$\langle X_1\rangle$')
 
-# plt.plot(freq_cm0[st:en],np.real(fr20)[st:en],label=r'$\langle X_2\rangle$')
+plt.plot(freq_cm0[st:en],np.real(fr20)[st:en],label=r'$\langle X_2\rangle$')
 
-# plt.ylabel('Real Part of FT')
+plt.ylabel('Real Part of FT')
 
-# plt.xlabel('Frequency ($cm^{-1}$)')
+plt.xlabel('Frequency ($cm^{-1}$)')
 
-# plt.legend()
+plt.legend()
 
-# plt.grid(True,which='both')
+plt.grid(True,which='both')
 
-# plt.minorticks_on()
+plt.minorticks_on()
 
-# plt.yticks([0])
+plt.yticks([0])
 
-# plt.title(r'Components of $\langle X\rangle$ at $T=2ps$')
+plt.title(r'Components of $\langle X\rangle$ at $T=2ps$')
 
 ##plt.savefig('ReFT_2ps_PE545',bbox_inches='tight',dpi=300)
 
