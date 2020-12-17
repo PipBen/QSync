@@ -33,7 +33,7 @@ import time
 import scipy.sparse as sp
 
 
-#from scripts import QCcorrelations as QC
+import QCcorrelations as QC
 
 # %% Define Parameters all in cm-1
 
@@ -988,56 +988,56 @@ dtperps = (100 * constant.c * 2 * constant.pi * 1e-12) / dt
 
 itvl = 5
 
-# %% Quantum Correlations
+%% Quantum Correlations
 
 
-# counta = time.time()
-
-
-
-# q_mutual = []
-
-# c_info = []
-
-# q_discord = []
-
-# corr_times = []
-
-# maxstep = np.int(np.round(8*dtperps))
+counta = time.time()
 
 
 
-# for i in np.arange(0,maxstep,100):
+q_mutual = []
 
-#    test_matrix = rhoT[i,:].reshape(np.shape(P0)[0],np.shape(P0)[1])
+c_info = []
 
-#    quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 1, 2)
+q_discord = []
 
-#    q_mutual.append(quantum_mutual_info)
+corr_times = []
 
-#    c_info.append(classical_info)
-
-#    q_discord.append(quantum_discord)
-
-#    corr_times.append(t_ps[i])
-
-#    print(i)
+maxstep = np.int(np.round(8*dtperps))
 
 
 
-# q_mutual = np.array(q_mutual)
+for i in np.arange(0,maxstep,100):
 
-# c_info = np.array(c_info)
+   test_matrix = rhoT[i,:].reshape(np.shape(P0)[0],np.shape(P0)[1])
 
-# q_discord = np.array(q_discord)
+   quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 1, 2)
 
-# corr_times = np.array(corr_times)
+   q_mutual.append(quantum_mutual_info)
+
+   c_info.append(classical_info)
+
+   q_discord.append(quantum_discord)
+
+   corr_times.append(t_ps[i])
+
+   print(i)
 
 
 
-# countb = time.time()
+q_mutual = np.array(q_mutual)
 
-# print('Quantum Correlation Measures =',countb-counta)
+c_info = np.array(c_info)
+
+q_discord = np.array(q_discord)
+
+corr_times = np.array(corr_times)
+
+
+
+countb = time.time()
+
+print('Quantum Correlation Measures =',countb-counta)
 
 
 # %%

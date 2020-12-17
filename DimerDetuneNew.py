@@ -13,6 +13,8 @@ Replace np.matrix (depreciated) with np.array throughout - this doesn't have a g
 .conj().transpose() I think
 
 Define regulary used arrays inside init
+
+rhoT needs to be parsed into each plot to avoid repeated calculations
 """
 import numpy as np
 import scipy.constants as constant
@@ -305,7 +307,8 @@ class Plots(Operations):
         dt = ((2 * constant.pi) / self.omega) / 100
         # t_cm = t / (2 * constant.pi)
         # t_ps = (t_cm * 1e12) / (100 * constant.c)
-
+        
+        #time evo of operators, REPRODUCE THIS IN COHERENCES
         x1, t = self.oper_evol(oX1, t0, tmax_ps, dt)
         x2, _ = self.oper_evol(oX2, t0, tmax_ps, dt)  # can also pass a time step if necessary
 
@@ -331,7 +334,7 @@ class Plots(Operations):
         # plt.plot(t_ps[np.arange(st,en,itvl)],v_x2[np.arange(st,en,itvl)],label=r'$V(X_2)$')
         # plt.plot(t_ps[np.arange(0,en,itvl)],c_vx12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle V(x_1)\rangle\langle V(x_2)\rangle}$')
         # plt.plot(t_ps[np.arange(st,en,itvl)],np.real(hINT_t)[np.arange(st,en,itvl)]/250,label=r'$H_{int}$')
-        # plt.ylabel('$<x>$')
+        plt.ylabel('$<x>$')
         # plt.ylabel('$C_{<X_1><X_2>}$',fontsize=12)
         axA.set_xlabel('Time (ps)')
         # axA.set_xlim([0,10])
@@ -347,6 +350,8 @@ class Plots(Operations):
 
 
     def coherences(self):
+        """Complex magnitude of exciton-vibration coherences scaled by the absolute value
+        of their corresponding position matrix element in the open quantum system evolution."""
         b = self.destroy()
         Iv = self.identity_vib()
         Ie = sp.eye(2, 2).tocsr()
@@ -434,6 +439,7 @@ class Plots(Operations):
         psi13 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
             psi13[i] = np.trace(opsi13.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+        #fn on operations - oper_evol FIGURE THIS OUT
 
         FigureB = plt.figure(5)
         plt.xlabel('Time ($ps$)')
@@ -465,7 +471,8 @@ class Plots(Operations):
         plt.plot(t_ps[st:en], np.abs(oX1eig[1, 3]) * np.abs(psi13[st:en]), label=r'$\Omega_{13} =$' + str(f13))
 
         #plt.ylim(-0.005,0.02)
-        plt.legend(bbox_to_anchor=([1, 1]))
+        
+        plt.legend(bbox_to_anchor=([1, 1]), title="Oscillatory Frequencies")
         plt.title(r'$\omega_2$ = ' + np.str(np.round(self.w2, decimals=2)) + ' $\omega_1$ = ' + np.str(
             np.round(self.w1, decimals=2)))  # $\omega=1530cm^{-1}$')
 
@@ -578,7 +585,7 @@ class Plots(Operations):
         coefx2chop = np.tril(coefx2,k=-1)
         
         t0 = 0  # start time
-        tmax_ps = 4
+        tmax_ps = 1.5
         tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
         dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
                                                         # automatically choose the best time step for calculation.
@@ -644,11 +651,10 @@ if __name__ == "__main__":
     # rhoT = ops.time_evol_me(0, 3, dt=None)
     # print(rhoT)
 
-    # plotting figure 14 (rename this something more descriptive of the output)
-    plot = Plots(rate_swap=False)
-    # plot.sync_evol()
-    # plot.coherences()
-    #plot.energy_transfer()
+    plot = Plots(rate_swap=True)
+    plot.sync_evol()
+    plot.coherences()
+    plot.energy_transfer()
     plot.fourier()
     plt.show()
 
