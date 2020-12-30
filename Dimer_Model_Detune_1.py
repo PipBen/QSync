@@ -988,7 +988,7 @@ dtperps = (100 * constant.c * 2 * constant.pi * 1e-12) / dt
 
 itvl = 5
 
-%% Quantum Correlations
+# %% Quantum Correlations
 
 
 counta = time.time()
@@ -1393,51 +1393,53 @@ axA.legend()
 
 # %%
 
-# FigureA = plt.figure(14)
 
-# en = 49000
+#QUANTUM PLOT
+FigureA = plt.figure(14)
 
-# st = 000
+en = 49000
 
-# itvl = 5
+st = 000
 
-#
+itvl = 5
 
-# axA = FigureA.add_subplot(111)
 
-# axA.plot(corr_times,c_info,label=r'Classical Info')
 
-# axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
+axA = FigureA.add_subplot(111)
 
-# axA.plot(corr_times,q_discord,label=r'Discord')
+axA.plot(corr_times,c_info,label=r'Classical Info')
 
-# axA.set_xlabel('Time (ps)')
+axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
 
-# axA.set_xlim([0,12])
+axA.plot(corr_times,q_discord,label=r'Discord')
 
-##axA.set_yticks([])
+axA.set_xlabel('Time (ps)')
 
-#
+axA.set_xlim([0,12])
 
-# axB = axA.twinx()
+#axA.set_yticks([])
 
-# axB.plot(t_ps[np.arange(st,en,itvl)],c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
 
-#
 
-# axB.grid()
+axB = axA.twinx()
 
-# axA.grid()
+axB.plot(t_ps[np.arange(st,en,itvl)],c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
 
-# axB.legend(bbox_to_anchor=([0.3,0.8]))
 
-# axA.legend(bbox_to_anchor=([0.9,0.8]))
 
-##plt.legend()
+axB.grid()
 
-##plt.savefig('cXX_dw004_100dt_QC.pdf',bbox_inches='tight',dpi=600,format='pdf',transparent=True)
+axA.grid()
 
-#
+axB.legend(bbox_to_anchor=([0.3,0.8]))
+
+axA.legend(bbox_to_anchor=([0.9,0.8]))
+
+#plt.legend()
+
+#plt.savefig('cXX_dw004_100dt_QC.pdf',bbox_inches='tight',dpi=600,format='pdf',transparent=True)
+
+
 
 
 # %%

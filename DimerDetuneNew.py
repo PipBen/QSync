@@ -23,13 +23,15 @@ import time
 import scipy.sparse as sp
 import scipy.linalg as sl
 import matplotlib.pylab as plt
+import QCcorrelations as QC
+#from plots import Plots
+#from foo import FooClass
 
 
 class DimerDetune:
     """Defines properties and functions of the vibronic dimer system"""
-    def __init__(self, rate_swap, n_cutoff=5, temperature=298, ):
+    def __init__(self, rate_swap, n_cutoff=5, temperature=298):
         #initialise properties of dimer 
-        
         self.n_cutoff =n_cutoff
         self.temperature =  temperature
 
@@ -88,6 +90,11 @@ class DimerDetune:
 
         self.E1 = sp.lil_matrix(np.matrix([[1.], [0.]])).tocsr()
         self.E2 = sp.lil_matrix(np.matrix([[0.], [1.]])).tocsr()
+
+        self.t0 = 0
+        self.dt = ((2 * constant.pi) / self.omega) / 100
+
+        
 
     def exciton_operator(self, e1, e2):
         """returns |E_e1><E_e2|"""
@@ -218,13 +225,10 @@ class Operations(DimerDetune):
         rho_ss = rho_ss / np.trace(rho_ss)
         return rho_ss
 
-    def time_evol_me(self, t0, tmax_ps, dt=None):
+    def time_evol_me(self, tmax_ps):
         count1 = time.time()
-        # time setup for integration
-        if dt is None:
-            dt = ((2 * constant.pi) / self.omega) / 100
         tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12
-        steps = np.int((tmax - t0) / dt)  # total number of steps. Must be int.
+        steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
 
         # initial state
         rho0 = self.init_state()
@@ -238,16 +242,16 @@ class Operations(DimerDetune):
             return pt
 
         evo = integrate.complex_ode(f)
-        evo.set_initial_value(rho0_l, t0)  # initial conditions
+        evo.set_initial_value(rho0_l, self.t0)  # initial conditions
         t = np.zeros(steps)
 
-        t[0] = t0
+        t[0] = self.t0
         rhoT = np.zeros((steps, rho0.shape[1] ** 2), dtype=complex)  # time is 3rd dim.
         rhoT[0, :] = rho0_l
         # now do the iteration.
         k = 1
         while evo.successful() and k < steps:
-            evo.integrate(evo.t + dt)  # time to integrate at at each loop
+            evo.integrate(evo.t + self.dt)  # time to integrate at at each loop
             t[k] = evo.t  # save current loop time
             rhoT[k, :] = evo.y  # save current loop data
             k += 1  # keep index increasing with time.
@@ -256,15 +260,14 @@ class Operations(DimerDetune):
 
         return rhoT, t
 
-    def oper_evol(self, operator, t0, tmax_ps, dt=None):
+    def oper_evol(self, operator, rhoT, t, tmax_ps):
         """calculates the time evolution of an operator"""
-        rhoT, times = self.time_evol_me(t0, tmax_ps, dt)
         steps = len(rhoT[:, 0])
         N = int(np.sqrt(len(rhoT[0, :])))
         oper = np.zeros(steps)
         for i in np.arange(steps):
             oper[i] = np.real(np.trace(operator.dot(rhoT[i, :].reshape(N, N))))
-        return oper, times
+        return oper
 
     @staticmethod
     def corrfunc(f1, f2, delta):
@@ -288,11 +291,14 @@ class Operations(DimerDetune):
         C = df1df2bar / np.sqrt(df1sqbar * df2sqbar)
         return C
 
-
 class Plots(Operations):
 
-    def sync_evol(self):
+    def __init__(self, rate_swap, n_cutoff=5, temperature=298):
+        DimerDetune.__init__(self, rate_swap, n_cutoff=5, temperature=298)
+        tmax_ps = 4
+        self.rhoT , self.t  = self.time_evol_me(tmax_ps)
 
+    def sync_evol(self):
 
         b = self.destroy()
         Iv = self.identity_vib()
@@ -302,20 +308,16 @@ class Plots(Operations):
         oX2 = oB2 + oB2.getH()
         oX1 = oB1 + oB1.getH()
 
-        t0 = 0
-        tmax_ps = 4.
-        dt = ((2 * constant.pi) / self.omega) / 100
-        # t_cm = t / (2 * constant.pi)
-        # t_ps = (t_cm * 1e12) / (100 * constant.c)
+        tmax_ps = 4
         
         #time evo of operators, REPRODUCE THIS IN COHERENCES
-        x1, t = self.oper_evol(oX1, t0, tmax_ps, dt)
-        x2, _ = self.oper_evol(oX2, t0, tmax_ps, dt)  # can also pass a time step if necessary
+        x1 = self.oper_evol(oX1,self.rhoT, self.t, tmax_ps)
+        x2 = self.oper_evol(oX2,self.rhoT, self.t, tmax_ps)  # can also pass a time step if necessary
 
-        t_cm = t / (2 * constant.pi)
+        t_cm = self.t / (2 * constant.pi)
         t_ps = (t_cm * 1e12) / (100 * constant.c)
 
-        elta = np.int(np.round(((2 * constant.pi) / self.omega) / dt))
+        elta = np.int(np.round(((2 * constant.pi) / self.omega) / self.dt))
         c_X12 = self.corrfunc(x1, x2, elta)
 
         FigureA = plt.figure(14)
@@ -324,18 +326,10 @@ class Plots(Operations):
         itvl = 5
         axA = FigureA.add_subplot(111)
         axA.plot(t_ps[np.arange(st, en, itvl)], x2[np.arange(st, en, itvl)], label=r'$\langle X_2\rangle$')
-        # plt.plot(t_ps[np.arange(st,en,itvl)],x2sq[np.arange(st,en,itvl)],label=r'$\langle X_2^2\rangle$')
         axA.plot(t_ps[np.arange(st, en, itvl)], x1[np.arange(st, en, itvl)], label=r'$\langle X_1\rangle$')
-        #plt.plot(t_ps[np.arange(st,en,itvl)],x1sq[np.arange(st,en,itvl)],label=r'$\langle X_1^2\rangle$')
-        # plt.plot(t_ps[np.arange(0,en,itvl)],c_Xsq12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1^2\rangle\langle x_2^2\rangle}$')
-        # plt.plot(t_ps[np.arange(0,en,itvl)],c_nsq12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1^2\rangle\langle n_2^2\rangle}$')
-        # plt.plot(t_ps[np.arange(0,en,itvl)],c_n12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1\rangle\langle n_2\rangle}$')
-        # plt.plot(t_ps[np.arange(st,en,itvl)],v_x1[np.arange(st,en,itvl)],label=r'$V(X_1)$')
-        # plt.plot(t_ps[np.arange(st,en,itvl)],v_x2[np.arange(st,en,itvl)],label=r'$V(X_2)$')
-        # plt.plot(t_ps[np.arange(0,en,itvl)],c_vx12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle V(x_1)\rangle\langle V(x_2)\rangle}$')
-        # plt.plot(t_ps[np.arange(st,en,itvl)],np.real(hINT_t)[np.arange(st,en,itvl)]/250,label=r'$H_{int}$')
+
         plt.ylabel('$<x>$')
-        # plt.ylabel('$C_{<X_1><X_2>}$',fontsize=12)
+        plt.ylabel('$C_{<X_1><X_2>}$',fontsize=12)
         axA.set_xlabel('Time (ps)')
         # axA.set_xlim([0,10])
         axA.set_yticks([])
@@ -370,7 +364,18 @@ class Plots(Operations):
         oE2 = sp.kron(self.E2, self.E2.getH()).tocsr()
         P0 = sp.kron(oE2, sp.kron(M1thermal, M2thermal)).todense()
 
+        ########################################
+        # def oper_evol(self, operator, rhoT, t, tmax_ps):
+        #     """calculates the time evolution of an operator"""
+        #     steps = len(rhoT[:, 0])
+        #     N = int(np.sqrt(len(rhoT[0, :])))
+        #     oper = np.zeros(steps)
+        #     for i in np.arange(steps):
+        #         oper[i] = np.real(np.trace(operator.dot(rhoT[i, :].reshape(N, N))))
+        #     return oper
 
+        # eigs_evo = oper_evol(eigs,self.rhoT, self.t, tmax_ps)
+        #############################################
 
         opsi01 = np.kron(eigs[:, 0], eigs[:, 1].getH())
         opsi10 = np.kron(eigs[:, 1], eigs[:, 0].getH())
@@ -389,56 +394,50 @@ class Plots(Operations):
         opsi37 = np.kron(eigs[:, 3], eigs[:, 7].getH())
 
 
-        
-        t0 = 0  # start time
-        tmax_ps = 2
+        tmax_ps = 4 #2
         tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
-        dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
-                                                        # automatically choose the best time step for calculation.
         
-        rhoT, t = self.time_evol_me(t0, tmax_ps, dt=dt)
-        
-        t_cm = t / (2 * constant.pi)
+        t_cm = self.t / (2 * constant.pi)
         t_ps = (t_cm * 1e12) / (100 * constant.c)
 
-        steps = np.int((tmax - t0) / dt)  # total number of steps. Must be int.
+        ##################################################
+        #eigs_evo = self.oper_evol(eigs,self.rhoT, self.t, tmax_ps)
+        #############################################
+
+        steps = len(self.rhoT[:, 0]) # np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
 
         
-
-
-        
-
         psi01 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
-            psi01[i] = np.trace(opsi01.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+            psi01[i] = np.trace(opsi01.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
         
         psi02 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
-            psi02[i] = np.trace(opsi02.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+            psi02[i] = np.trace(opsi02.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
 
         psi03 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
-            psi03[i] = np.trace(opsi03.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+            psi03[i] = np.trace(opsi03.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
 
         psi14 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
-            psi14[i] = np.trace(opsi14.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+            psi14[i] = np.trace(opsi14.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
 
         psi15 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
-            psi15[i] = np.trace(opsi15.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+            psi15[i] = np.trace(opsi15.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
 
         psi37 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
-            psi37[i] = np.trace(opsi37.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+            psi37[i] = np.trace(opsi37.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
 
         psi38 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
-            psi38[i] = np.trace(opsi38.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+            psi38[i] = np.trace(opsi38.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
 
         psi13 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
-            psi13[i] = np.trace(opsi13.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
+            psi13[i] = np.trace(opsi13.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
         #fn on operations - oper_evol FIGURE THIS OUT
 
         FigureB = plt.figure(5)
@@ -495,16 +494,15 @@ class Plots(Operations):
         itvl = 3    #time interval?
 
 
-        t0 = 0  # start time
         tmax_ps = 4
         tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
-        dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
+        # dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
                                                         # automatically choose the best time step for calculation.
-        steps = np.int((tmax - t0) / dt)  # total number of steps. Must be int.
+        steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
 
-        rhoT, t = self.time_evol_me(t0, tmax_ps, dt=dt)
+        # rhoT, t = self.time_evol_me(tmax_ps)
 
-        t_cm = t / (2 * constant.pi)
+        t_cm = self.t / (2 * constant.pi)
         t_ps = (t_cm * 1e12) / (100 * constant.c)
 
         #COULD MOVE THESE INTO INIT
@@ -523,19 +521,19 @@ class Plots(Operations):
 
         ex1 = np.zeros((steps))
         for i in np.arange(steps):
-            ex1[i] = np.real(np.trace(oE1mImI.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
+            ex1[i] = np.real(np.trace(oE1mImI.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
 
         ex2 = np.zeros((steps))
         for i in np.arange(steps):
-            ex2[i] = np.real(np.trace(oE2mImI.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
+            ex2[i] = np.real(np.trace(oE2mImI.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
 
         ex12 = np.zeros((steps))
         for i in np.arange(steps):
-            ex12[i] = np.abs(np.trace(oE1E2mImI.dot(rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
+            ex12[i] = np.abs(np.trace(oE1E2mImI.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
 
-        x1, t = self.oper_evol(oX1, t0, tmax_ps, dt)
-        x2, _ = self.oper_evol(oX2, t0, tmax_ps, dt)  # can also pass a time step if necessary
-        elta = np.int(np.round(((2 * constant.pi) / self.omega) / dt))
+        x1 = self.oper_evol(oX1, self.rhoT, self.t,  tmax_ps)
+        x2 = self.oper_evol(oX2, self.rhoT, self.t,  tmax_ps)  # can also pass a time step if necessary
+        elta = np.int(np.round(((2 * constant.pi) / self.omega) / self.dt))
         c_X12 = self.corrfunc(x1, x2, elta)
 
 
@@ -548,7 +546,6 @@ class Plots(Operations):
         plt.plot(t_ps[0:en], ex2[0:en], label=r'$|E_{2}\rangle\langle E_{2}|$')
         plt.plot(t_ps[0:en], ex12[0:en], label=r'$||E_{1}\rangle\langle E_{2}||$')
         plt.plot(t_ps[np.arange(0,en,itvl)],c_X12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
-        #plt.plot(t_ps[0:en],ex12_00[0:en],label=r'$|E_{1}00\rangle\langle E_{2}00|$')
 
         plt.xlabel('Time ($ps$)')
         # plt.xlim([0,5])
@@ -584,14 +581,13 @@ class Plots(Operations):
         coefx1chop = np.tril(coefx1,k=-1)
         coefx2chop = np.tril(coefx2,k=-1)
         
-        t0 = 0  # start time
-        tmax_ps = 1.5
+        tmax_ps = 4
         tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
-        dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
+        # dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
                                                         # automatically choose the best time step for calculation.
-        steps = np.int((tmax - t0) / dt)  # total number of steps. Must be int.
-        rhoT, t = self.time_evol_me(t0, tmax_ps, dt=dt)
-        t_cm = t / (2 * constant.pi)
+        steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
+        # rhoT, t = self.time_evol_me(tmax_ps)
+        t_cm = self.t / (2 * constant.pi)
 
         
         N= self.n_cutoff
@@ -640,21 +636,15 @@ class Plots(Operations):
         plt.yticks([0])
         plt.title(r'Components of $\langle X\rangle$ at $T=2ps$')
 
-
-
-
 if __name__ == "__main__":
-    #n_cutoff = 5  # this is the maximim occupation of the vibrational mode
-    # dimer = DimerDetune(n_cutoff, 298)
-    # ops = Operations(dimer)  # this takes the same inputs as DimerDetune
-    #rho0 = ops.steady_state()
-    # rhoT = ops.time_evol_me(0, 3, dt=None)
-    # print(rhoT)
-
+  
+    # print(foo.FooClass.blah())
+    #plot = plots.Plots(rate_swap=True)
+    # tmax_ps = 4
     plot = Plots(rate_swap=True)
-    plot.sync_evol()
-    plot.coherences()
-    plot.energy_transfer()
-    plot.fourier()
-    plt.show()
 
+    #plot.sync_evol()
+    plot.coherences()
+    #plot.energy_transfer()
+    #plot.fourier()
+    plt.show()
