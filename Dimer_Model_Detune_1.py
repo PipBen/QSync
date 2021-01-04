@@ -665,7 +665,7 @@ evo = integrate.complex_ode(f)  # call my ode solver evo.
 
 t0 = 0  # start time
 
-tmax_ps = 4
+tmax_ps = 12
 
 tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
 
@@ -993,51 +993,64 @@ itvl = 5
 
 counta = time.time()
 
-
-
 q_mutual = []
-
 c_info = []
-
 q_discord = []
-
 corr_times = []
 
 maxstep = np.int(np.round(8*dtperps))
-
-
-
-for i in np.arange(0,maxstep,100):
+                    #maxstep
+for i in np.arange(0,maxstep,2000):
 
    test_matrix = rhoT[i,:].reshape(np.shape(P0)[0],np.shape(P0)[1])
-
    quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 1, 2)
-
    q_mutual.append(quantum_mutual_info)
-
    c_info.append(classical_info)
-
    q_discord.append(quantum_discord)
-
    corr_times.append(t_ps[i])
-
    print(i)
 
-
-
 q_mutual = np.array(q_mutual)
-
 c_info = np.array(c_info)
-
 q_discord = np.array(q_discord)
-
 corr_times = np.array(corr_times)
-
-
 
 countb = time.time()
 
 print('Quantum Correlation Measures =',countb-counta)
+
+#QUANTUM PLOT
+FigureA = plt.figure(14)
+
+en = 1000 #49000
+st = 000
+
+itvl = 5
+axA = FigureA.add_subplot(111)
+axA.plot(corr_times,c_info,label=r'Classical Info')
+axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
+axA.plot(corr_times,q_discord,label=r'Discord')
+axA.set_xlabel('Time (ps)')
+axA.set_xlim([0,8])
+#axA.set_yticks([])
+
+axB = axA.twinx()
+print(len(t_ps))
+print(len(c_X12))
+print(len(np.arange(st,en,itvl)))
+print(np.arange(st,en,itvl))
+#axB.plot(t_ps[np.arange(st,en,itvl)],c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+axB.grid()
+axA.grid()
+axB.legend(bbox_to_anchor=([0.3,0.8]))
+axA.legend(bbox_to_anchor=([0.9,0.8]))
+
+#plt.legend()
+
+#plt.savefig('cXX_dw004_100dt_QC.pdf',bbox_inches='tight',dpi=600,format='pdf',transparent=True)
+
+
+
 
 
 # %%
@@ -1121,89 +1134,89 @@ print('Quantum Correlation Measures =',countb-counta)
 # %%
 
 
-count4 = time.time()
+# count4 = time.time()
 
 
 
-sampleratecm = 1/(t_cm[1]-t_cm[0])
+# sampleratecm = 1/(t_cm[1]-t_cm[0])
 
-freqres1 = 0.5
+# freqres1 = 0.5
 
-ftlen = (t_cm[1]-t_cm[0])*np.arange(int(sampleratecm/freqres1))
-
-
-
-anaX1array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
-
-anaX2array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
-
-anaX1 = np.zeros(np.size(ftlen))
-
-anaX2 = np.zeros(np.size(ftlen))
-
-#
-
-for a in np.arange(np.size(ftlen)):
-
-   anaX1array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx1chop)
-
-   anaX1[a] = np.sum(anaX1array[:,:,a]) + np.trace(coefx1)
-
-   anaX2array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx2chop)
-
-   anaX2[a] = np.sum(anaX2array[:,:,a]) + np.trace(coefx2)
+# ftlen = (t_cm[1]-t_cm[0])*np.arange(int(sampleratecm/freqres1))
 
 
 
-freqres2 = 0.1
+# anaX1array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
 
-pads = int((sampleratecm/freqres2)-np.shape(anaX1)[0]) #30000
+# anaX2array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
 
-x1pad = np.append(anaX1,np.zeros(pads))
+# anaX1 = np.zeros(np.size(ftlen))
 
-x2pad = np.append(anaX2,np.zeros(pads))
+# anaX2 = np.zeros(np.size(ftlen))
 
-fr10 = np.fft.rfft(x1pad,int(np.size(x1pad)))
+# #
 
-fr20 = np.fft.rfft(x2pad,int(np.size(x2pad)))
+# for a in np.arange(np.size(ftlen)):
 
-freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
+#    anaX1array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx1chop)
+
+#    anaX1[a] = np.sum(anaX1array[:,:,a]) + np.trace(coefx1)
+
+#    anaX2array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx2chop)
+
+#    anaX2[a] = np.sum(anaX2array[:,:,a]) + np.trace(coefx2)
 
 
 
-count5 = time.time()
+# freqres2 = 0.1
 
-print('Measurements =',count5-count4)
+# pads = int((sampleratecm/freqres2)-np.shape(anaX1)[0]) #30000
+
+# x1pad = np.append(anaX1,np.zeros(pads))
+
+# x2pad = np.append(anaX2,np.zeros(pads))
+
+# fr10 = np.fft.rfft(x1pad,int(np.size(x1pad)))
+
+# fr20 = np.fft.rfft(x2pad,int(np.size(x2pad)))
+
+# freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
+
+
+
+# count5 = time.time()
+
+# print('Measurements =',count5-count4)
 
 
 # %%
 
 #FOURIER
-st = int(1100/(sampleratecm/np.size(x1pad)))
+# st = int(1100/(sampleratecm/np.size(x1pad)))
 
-en = int(1130/(sampleratecm/np.size(x1pad)))
+# en = int(1130/(sampleratecm/np.size(x1pad)))
 
 
 
-plt.figure(30)
+# plt.figure(30)
 
-plt.plot(freq_cm0[st:en],np.real(fr10)[st:en],label=r'$\langle X_1\rangle$')
+# plt.plot(freq_cm0[st:en],np.real(fr10)[st:en],label=r'$\langle X_1\rangle$')
 
-plt.plot(freq_cm0[st:en],np.real(fr20)[st:en],label=r'$\langle X_2\rangle$')
+# plt.plot(freq_cm0[st:en],np.real(fr20)[st:en],label=r'$\langle X_2\rangle$')
 
-plt.ylabel('Real Part of FT')
+# plt.ylabel('Real Part of FT')
 
-plt.xlabel('Frequency ($cm^{-1}$)')
+# plt.xlabel('Frequency ($cm^{-1}$)')
 
-plt.legend()
+# plt.legend()
 
-plt.grid(True,which='both')
+# plt.grid(True,which='both')
 
-plt.minorticks_on()
+# plt.minorticks_on()
 
-plt.yticks([0])
+# plt.yticks([0])
 
-plt.title(r'Components of $\langle X\rangle$ at $T=2ps$')
+# plt.title(r'Components of $\langle X\rangle$ at $T=2ps$')
 
 ##plt.savefig('ReFT_2ps_PE545',bbox_inches='tight',dpi=300)
 
@@ -1288,60 +1301,60 @@ plt.title(r'Components of $\langle X\rangle$ at $T=2ps$')
 
 # %% #####################################################
 
-FigureA = plt.figure(14)
+# FigureA = plt.figure(14)
 
-en = 13000
+# en = 13000
 
-st = 0000
+# st = 0000
 
-itvl = 5
+# itvl = 5
 
-axA = FigureA.add_subplot(111)
+# axA = FigureA.add_subplot(111)
 
-axA.plot(t_ps[np.arange(st, en, itvl)], x2[np.arange(st, en, itvl)], label=r'$\langle X_2\rangle$')
+# axA.plot(t_ps[np.arange(st, en, itvl)], x2[np.arange(st, en, itvl)], label=r'$\langle X_2\rangle$')
 
-# plt.plot(t_ps[np.arange(st,en,itvl)],x2sq[np.arange(st,en,itvl)],label=r'$\langle X_2^2\rangle$')
+# # plt.plot(t_ps[np.arange(st,en,itvl)],x2sq[np.arange(st,en,itvl)],label=r'$\langle X_2^2\rangle$')
 
-axA.plot(t_ps[np.arange(st, en, itvl)], x1[np.arange(st, en, itvl)], label=r'$\langle X_1\rangle$')
+# axA.plot(t_ps[np.arange(st, en, itvl)], x1[np.arange(st, en, itvl)], label=r'$\langle X_1\rangle$')
 
-# plt.plot(t_ps[np.arange(st,en,itvl)],x1sq[np.arange(st,en,itvl)],label=r'$\langle X_1^2\rangle$')
+# # plt.plot(t_ps[np.arange(st,en,itvl)],x1sq[np.arange(st,en,itvl)],label=r'$\langle X_1^2\rangle$')
 
-# plt.plot(t_ps[np.arange(0,en,itvl)],c_Xsq12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1^2\rangle\langle x_2^2\rangle}$')
+# # plt.plot(t_ps[np.arange(0,en,itvl)],c_Xsq12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1^2\rangle\langle x_2^2\rangle}$')
 
-# plt.plot(t_ps[np.arange(0,en,itvl)],c_nsq12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1^2\rangle\langle n_2^2\rangle}$')
+# # plt.plot(t_ps[np.arange(0,en,itvl)],c_nsq12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1^2\rangle\langle n_2^2\rangle}$')
 
-# plt.plot(t_ps[np.arange(0,en,itvl)],c_n12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1\rangle\langle n_2\rangle}$')
+# # plt.plot(t_ps[np.arange(0,en,itvl)],c_n12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle n_1\rangle\langle n_2\rangle}$')
 
-# plt.plot(t_ps[np.arange(st,en,itvl)],v_x1[np.arange(st,en,itvl)],label=r'$V(X_1)$')
+# # plt.plot(t_ps[np.arange(st,en,itvl)],v_x1[np.arange(st,en,itvl)],label=r'$V(X_1)$')
 
-# plt.plot(t_ps[np.arange(st,en,itvl)],v_x2[np.arange(st,en,itvl)],label=r'$V(X_2)$')
+# # plt.plot(t_ps[np.arange(st,en,itvl)],v_x2[np.arange(st,en,itvl)],label=r'$V(X_2)$')
 
-# plt.plot(t_ps[np.arange(0,en,itvl)],c_vx12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle V(x_1)\rangle\langle V(x_2)\rangle}$')
+# # plt.plot(t_ps[np.arange(0,en,itvl)],c_vx12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle V(x_1)\rangle\langle V(x_2)\rangle}$')
 
-# plt.plot(t_ps[np.arange(st,en,itvl)],np.real(hINT_t)[np.arange(st,en,itvl)]/250,label=r'$H_{int}$')
+# # plt.plot(t_ps[np.arange(st,en,itvl)],np.real(hINT_t)[np.arange(st,en,itvl)]/250,label=r'$H_{int}$')
 
-# plt.ylabel('$<x>$')
+# # plt.ylabel('$<x>$')
 
-# plt.ylabel('$C_{<X_1><X_2>}$',fontsize=12)
+# # plt.ylabel('$C_{<X_1><X_2>}$',fontsize=12)
 
-axA.set_xlabel('Time (ps)')
+# axA.set_xlabel('Time (ps)')
 
-# axA.set_xlim([0,10])
+# # axA.set_xlim([0,10])
 
-axA.set_yticks([])
+# axA.set_yticks([])
 
-axB = axA.twinx()
+# axB = axA.twinx()
 
-axB.plot(t_ps[np.arange(st, en, itvl)], c_X12[np.arange(st, en, itvl)], 'r-o', markevery=0.05, markersize=5,
-         label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+# axB.plot(t_ps[np.arange(st, en, itvl)], c_X12[np.arange(st, en, itvl)], 'r-o', markevery=0.05, markersize=5,
+#          label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
 
-axB.grid()
+# axB.grid()
 
-axA.grid()
+# axA.grid()
 
-axB.legend(bbox_to_anchor=(0.9, 0.6))
+# axB.legend(bbox_to_anchor=(0.9, 0.6))
 
-axA.legend()
+# axA.legend()
 
 # plt.savefig('cXX_dw004_QC.pdf',bbox_inches='tight',dpi=600,format='pdf',transparent=True)
 
@@ -1392,52 +1405,6 @@ axA.legend()
 
 
 # %%
-
-
-#QUANTUM PLOT
-FigureA = plt.figure(14)
-
-en = 49000
-
-st = 000
-
-itvl = 5
-
-
-
-axA = FigureA.add_subplot(111)
-
-axA.plot(corr_times,c_info,label=r'Classical Info')
-
-axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
-
-axA.plot(corr_times,q_discord,label=r'Discord')
-
-axA.set_xlabel('Time (ps)')
-
-axA.set_xlim([0,12])
-
-#axA.set_yticks([])
-
-
-
-axB = axA.twinx()
-
-axB.plot(t_ps[np.arange(st,en,itvl)],c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
-
-
-
-axB.grid()
-
-axA.grid()
-
-axB.legend(bbox_to_anchor=([0.3,0.8]))
-
-axA.legend(bbox_to_anchor=([0.9,0.8]))
-
-#plt.legend()
-
-#plt.savefig('cXX_dw004_100dt_QC.pdf',bbox_inches='tight',dpi=600,format='pdf',transparent=True)
 
 
 
@@ -1526,78 +1493,78 @@ axA.legend(bbox_to_anchor=([0.9,0.8]))
 
 
 
-sampleratecm = 1/(t_cm[1]-t_cm[0])
+# sampleratecm = 1/(t_cm[1]-t_cm[0])
 
-freqres = 0.5
+# freqres = 0.5
 
-pads = int((sampleratecm/freqres)-np.shape(x1)[0]) #30000
+# pads = int((sampleratecm/freqres)-np.shape(x1)[0]) #30000
 
-x1pad = np.append(x1,np.zeros(pads))
+# x1pad = np.append(x1,np.zeros(pads))
 
-x2pad = np.append(x2,np.zeros(pads))
+# x2pad = np.append(x2,np.zeros(pads))
 
-fr1 = np.fft.rfft(x1pad,int(np.size(x1pad)))
+# fr1 = np.fft.rfft(x1pad,int(np.size(x1pad)))
 
-fr2 = np.fft.rfft(x2pad,int(np.size(x2pad)))
+# fr2 = np.fft.rfft(x2pad,int(np.size(x2pad)))
 
-freq_cm = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
+# freq_cm = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
 
-# %%
-
-
-st = int(1000/(sampleratecm/np.size(x1pad)))
-
-en = int(1300/(sampleratecm/np.size(x1pad)))
+# # %%
 
 
-plt.figure(13)
+# st = int(1000/(sampleratecm/np.size(x1pad)))
 
-plt.plot(freq_cm[st:en],np.real(fr1)[st:en],label='<$X_1$>')
+# en = int(1300/(sampleratecm/np.size(x1pad)))
 
-plt.plot(freq_cm[st:en],np.real(fr2)[st:en],label='<$X_2$>')
 
-plt.ylabel('Real')
+# plt.figure(13)
 
-plt.xlabel('Frequency ($cm^{-1}$)')
+# plt.plot(freq_cm[st:en],np.real(fr1)[st:en],label='<$X_1$>')
 
-plt.legend()
+# plt.plot(freq_cm[st:en],np.real(fr2)[st:en],label='<$X_2$>')
 
-plt.grid()
-
-#
-
-# plt.figure(12)
-
-# plt.plot(freq_cm[st:en],np.imag(fr1)[st:en],label='<$X_1$>')
-
-# plt.plot(freq_cm[st:en],np.imag(fr2)[st:en],label='<$X_2$>')
-
-# plt.ylabel('Imaginary')
+# plt.ylabel('Real')
 
 # plt.xlabel('Frequency ($cm^{-1}$)')
 
+# plt.legend()
+
 # plt.grid()
 
+# #
 
-plt.figure(19)
+# # plt.figure(12)
 
-plt.plot(freq_cm[st:en],(np.abs(fr1)**2)[st:en],label='<$X_1$>')
+# # plt.plot(freq_cm[st:en],np.imag(fr1)[st:en],label='<$X_1$>')
 
-plt.plot(freq_cm[st:en],(np.abs(fr2)**2)[st:en],label='<$X_2$>')
+# # plt.plot(freq_cm[st:en],np.imag(fr2)[st:en],label='<$X_2$>')
 
-plt.ylabel('Power')
+# # plt.ylabel('Imaginary')
 
-plt.xlabel('Frequency ($cm^{-1}$)')
+# # plt.xlabel('Frequency ($cm^{-1}$)')
 
-plt.grid(True,which='both')
+# # plt.grid()
 
-plt.minorticks_on()
 
-plt.yticks([])
+# plt.figure(19)
 
-plt.title('Full time evolution FT')
+# plt.plot(freq_cm[st:en],(np.abs(fr1)**2)[st:en],label='<$X_1$>')
 
-plt.legend()
+# plt.plot(freq_cm[st:en],(np.abs(fr2)**2)[st:en],label='<$X_2$>')
+
+# plt.ylabel('Power')
+
+# plt.xlabel('Frequency ($cm^{-1}$)')
+
+# plt.grid(True,which='both')
+
+# plt.minorticks_on()
+
+# plt.yticks([])
+
+# plt.title('Full time evolution FT')
+
+# plt.legend()
 
 
 # %%
@@ -1814,41 +1781,41 @@ plt.legend()
 
 # %%
 #ENERGY TRANSFER
-plt.figure(7)
+# plt.figure(7)
 
-st = 0000
+# st = 0000
 
-en = 13000  # P_el.shape[2]
+# en = 13000  # P_el.shape[2]
 
-itvl = 3
+# itvl = 3
 
-plt.plot(t_ps[0:en], ex1[0:en], label=r'$|E_{1}\rangle\langle E_{1}|$')
+# plt.plot(t_ps[0:en], ex1[0:en], label=r'$|E_{1}\rangle\langle E_{1}|$')
 
-plt.plot(t_ps[0:en], ex2[0:en], label=r'$|E_{2}\rangle\langle E_{2}|$')
+# plt.plot(t_ps[0:en], ex2[0:en], label=r'$|E_{2}\rangle\langle E_{2}|$')
 
-plt.plot(t_ps[0:en], ex12[0:en], label=r'$||E_{1}\rangle\langle E_{2}||$')
+# plt.plot(t_ps[0:en], ex12[0:en], label=r'$||E_{1}\rangle\langle E_{2}||$')
 
-#plt.plot(t_ps[0:en],ex12_00[0:en],label=r'$|E_{1}00\rangle\langle E_{2}00|$')
+# #plt.plot(t_ps[0:en],ex12_00[0:en],label=r'$|E_{1}00\rangle\langle E_{2}00|$')
 
-plt.plot(t_ps[np.arange(0,en,itvl)],c_X12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+# plt.plot(t_ps[np.arange(0,en,itvl)],c_X12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
 
-#plt.plot(t_ps[0:en],ex21[0:en],label='abs($E_{21}$)')
+# #plt.plot(t_ps[0:en],ex21[0:en],label='abs($E_{21}$)')
 
-# plt.plot(t_ps[st:en],sigZ[st:en],label='$\sigma_Z$')
+# # plt.plot(t_ps[st:en],sigZ[st:en],label='$\sigma_Z$')
 
-# plt.plot(t_ps[0:en],ex12m0m0[0:en],label='$E_{12}m_0m_0$')
+# # plt.plot(t_ps[0:en],ex12m0m0[0:en],label='$E_{12}m_0m_0$')
 
-# plt.ylabel('Population')
+# # plt.ylabel('Population')
 
-plt.xlabel('Time ($ps$)')
+# plt.xlabel('Time ($ps$)')
 
-# plt.xlim([0,5])
+# # plt.xlim([0,5])
 
-plt.grid()
+# plt.grid()
 
-# plt.legend(bbox_to_anchor=[1,1])
+# # plt.legend(bbox_to_anchor=[1,1])
 
-plt.legend()
+# plt.legend()
 
 # plt.title(r'Exciton Coherence and Synchronisation $\eta=0.175$')
 
@@ -1912,41 +1879,41 @@ plt.legend()
 
 # %%
 
-plt.figure(5)
+# plt.figure(5)
 
-st = 00
+# st = 00
 
-en = 13000
+# en = 13000
 
-plt.plot(t_ps[st:en],oX1eig[0,1]*np.real(psi01[st:en]),label=r'$\Omega_{01} =$'+str(f01))
+# plt.plot(t_ps[st:en],oX1eig[0,1]*np.real(psi01[st:en]),label=r'$\Omega_{01} =$'+str(f01))
 
-plt.plot(t_ps[st:en],oX1eig[0,2]*np.real(psi02[st:en]),label=r'$\Omega_{02} =$'+str(f02))
+# plt.plot(t_ps[st:en],oX1eig[0,2]*np.real(psi02[st:en]),label=r'$\Omega_{02} =$'+str(f02))
 
-plt.plot(t_ps[st:en],oX1eig[0,3]*np.real(psi03[st:en]),label=r'$\Omega_{03} =$'+str(f03))
+# plt.plot(t_ps[st:en],oX1eig[0,3]*np.real(psi03[st:en]),label=r'$\Omega_{03} =$'+str(f03))
 
-plt.plot(t_ps[st:en],oX1eig[1,4]*np.real(psi14[st:en]),label=r'$\Omega_{14} =$'+str(f14))
+# plt.plot(t_ps[st:en],oX1eig[1,4]*np.real(psi14[st:en]),label=r'$\Omega_{14} =$'+str(f14))
 
-plt.plot(t_ps[st:en],oX1eig[1,5]*np.real(psi15[st:en]),label=r'$\Omega_{15} =$'+str(f15))
+# plt.plot(t_ps[st:en],oX1eig[1,5]*np.real(psi15[st:en]),label=r'$\Omega_{15} =$'+str(f15))
 
-plt.plot(t_ps[st:en],oX1eig[3,7]*np.real(psi37[st:en]),label=r'$\Omega_{37} =$'+str(f37))
+# plt.plot(t_ps[st:en],oX1eig[3,7]*np.real(psi37[st:en]),label=r'$\Omega_{37} =$'+str(f37))
 
-plt.plot(t_ps[st:en],oX1eig[3,8]*np.real(psi38[st:en]),label=r'$\Omega_{38} =$'+str(f38))
+# plt.plot(t_ps[st:en],oX1eig[3,8]*np.real(psi38[st:en]),label=r'$\Omega_{38} =$'+str(f38))
 
-plt.plot(t_ps[st:en],oX1eig[1,3]*np.real(psi13[st:en]),label=r'$\Omega_{13} =$'+str(f13))
-
-
+# plt.plot(t_ps[st:en],oX1eig[1,3]*np.real(psi13[st:en]),label=r'$\Omega_{13} =$'+str(f13))
 
 
 
 
 
-plt.xlabel('Time ($ps$)')
 
-plt.grid()
 
-plt.legend(bbox_to_anchor=([1,1]))
+# plt.xlabel('Time ($ps$)')
 
-plt.title(r'$\omega_2$ = ' + np.str(np.round(w2,decimals=2))+ ' $\omega_1$ = ' + np.str(np.round(w1,decimals=2))) #$\omega=1530cm^{-1}$')
+# plt.grid()
+
+# plt.legend(bbox_to_anchor=([1,1]))
+
+# plt.title(r'$\omega_2$ = ' + np.str(np.round(w2,decimals=2))+ ' $\omega_1$ = ' + np.str(np.round(w1,decimals=2))) #$\omega=1530cm^{-1}$')
 
 ##plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
 

@@ -87,14 +87,11 @@ class DimerDetune:
         self.dimH = 2 * n_cutoff**2  # Hilbert space dimension
 
         # Exciton Vectors
-
         self.E1 = sp.lil_matrix(np.matrix([[1.], [0.]])).tocsr()
         self.E2 = sp.lil_matrix(np.matrix([[0.], [1.]])).tocsr()
 
         self.t0 = 0
         self.dt = ((2 * constant.pi) / self.omega) / 100
-
-        
 
     def exciton_operator(self, e1, e2):
         """returns |E_e1><E_e2|"""
@@ -295,38 +292,40 @@ class Plots(Operations):
 
     def __init__(self, rate_swap, n_cutoff=5, temperature=298):
         DimerDetune.__init__(self, rate_swap, n_cutoff=5, temperature=298)
-        tmax_ps = 4
-        self.rhoT , self.t  = self.time_evol_me(tmax_ps)
-
-    def sync_evol(self):
+        self.tmax_ps = 8
+        self.rhoT , self.t  = self.time_evol_me(self.tmax_ps)
 
         b = self.destroy()
-        Iv = self.identity_vib()
-        Ie = sp.eye(2, 2).tocsr()
-        oB1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
-        oB2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
-        oX2 = oB2 + oB2.getH()
-        oX1 = oB1 + oB1.getH()
+        self.Iv = self.identity_vib()
+        self.Ie = sp.eye(2, 2).tocsr()
+        
+        self.oB1 = sp.kron(self.Ie, sp.kron(b, self.Iv)).tocsr()
+        self.oB2 = sp.kron(self.Ie, sp.kron(self.Iv, b)).tocsr()
+        self.oX2 = self.oB2 + self.oB2.getH()
+        self.oX1 = self.oB1 + self.oB1.getH()
 
         tmax_ps = 4
         
         #time evo of operators, REPRODUCE THIS IN COHERENCES
-        x1 = self.oper_evol(oX1,self.rhoT, self.t, tmax_ps)
-        x2 = self.oper_evol(oX2,self.rhoT, self.t, tmax_ps)  # can also pass a time step if necessary
+        self.x1 = self.oper_evol(self.oX1,self.rhoT, self.t, tmax_ps)
+        self.x2 = self.oper_evol(self.oX2,self.rhoT, self.t, tmax_ps)  # can also pass a time step if necessary
 
-        t_cm = self.t / (2 * constant.pi)
-        t_ps = (t_cm * 1e12) / (100 * constant.c)
+        self.t_cm = self.t / (2 * constant.pi)
+        self.t_ps = (self.t_cm * 1e12) / (100 * constant.c)
 
-        elta = np.int(np.round(((2 * constant.pi) / self.omega) / self.dt))
-        c_X12 = self.corrfunc(x1, x2, elta)
+        self.elta = np.int(np.round(((2 * constant.pi) / self.omega) / self.dt))
+        self.c_X12 = self.corrfunc(self.x1, self.x2, self.elta)
+
+
+    def sync_evol(self):
 
         FigureA = plt.figure(14)
         en = 13000
         st = 0000
         itvl = 5
         axA = FigureA.add_subplot(111)
-        axA.plot(t_ps[np.arange(st, en, itvl)], x2[np.arange(st, en, itvl)], label=r'$\langle X_2\rangle$')
-        axA.plot(t_ps[np.arange(st, en, itvl)], x1[np.arange(st, en, itvl)], label=r'$\langle X_1\rangle$')
+        axA.plot(self.t_ps[np.arange(st, en, itvl)], self.x2[np.arange(st, en, itvl)], label=r'$\langle X_2\rangle$')
+        axA.plot(self.t_ps[np.arange(st, en, itvl)], self.x1[np.arange(st, en, itvl)], label=r'$\langle X_1\rangle$')
 
         plt.ylabel('$<x>$')
         plt.ylabel('$C_{<X_1><X_2>}$',fontsize=12)
@@ -334,7 +333,7 @@ class Plots(Operations):
         # axA.set_xlim([0,10])
         axA.set_yticks([])
         axB = axA.twinx()
-        axB.plot(t_ps[np.arange(st, en, itvl)], c_X12[np.arange(st, en, itvl)], 'r-o', markevery=0.05, markersize=5,
+        axB.plot(self.t_ps[np.arange(st, en, itvl)], self.c_X12[np.arange(st, en, itvl)], 'r-o', markevery=0.05, markersize=5,
                  label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
         axB.grid()
         axA.grid()
@@ -346,21 +345,14 @@ class Plots(Operations):
     def coherences(self):
         """Complex magnitude of exciton-vibration coherences scaled by the absolute value
         of their corresponding position matrix element in the open quantum system evolution."""
-        b = self.destroy()
-        Iv = self.identity_vib()
-        Ie = sp.eye(2, 2).tocsr()
-        oB1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
-        oB2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
-        oX2 = oB2 + oB2.getH()
-        oX1 = oB1 + oB1.getH()
-
 
         H= self.hamiltonian()
         vals, eigs = np.linalg.eigh(H.todense())
-        oX1eig = eigs.getH() * oX1 * eigs
+        oX1eig = eigs.getH() * self.oX1 * eigs
 
         M1thermal = self.thermal(self.w1)
         M2thermal = self.thermal(self.w2)
+
         oE2 = sp.kron(self.E2, self.E2.getH()).tocsr()
         P0 = sp.kron(oE2, sp.kron(M1thermal, M2thermal)).todense()
 
@@ -397,16 +389,12 @@ class Plots(Operations):
         tmax_ps = 4 #2
         tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
         
-        t_cm = self.t / (2 * constant.pi)
-        t_ps = (t_cm * 1e12) / (100 * constant.c)
-
         ##################################################
         #eigs_evo = self.oper_evol(eigs,self.rhoT, self.t, tmax_ps)
         #############################################
 
         steps = len(self.rhoT[:, 0]) # np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
 
-        
         psi01 = np.zeros((steps), dtype=complex)
         for i in np.arange(steps):
             psi01[i] = np.trace(opsi01.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1])))
@@ -460,14 +448,14 @@ class Plots(Operations):
         f38 = np.round(np.abs(omegaarray[3, 8]), decimals=2)
         f13 = np.round(np.abs(omegaarray[1, 3]), decimals=2)
 
-        plt.plot(t_ps[st:en], np.abs(oX1eig[0, 1]) * np.abs(psi01[st:en]), label=r'$\Omega_{01} =$' + str(f01))
-        plt.plot(t_ps[st:en], np.abs(oX1eig[0, 2]) * np.abs(psi02[st:en]), label=r'$\Omega_{02} =$' + str(f02))
-        plt.plot(t_ps[st:en], np.abs(oX1eig[0, 3]) * np.abs(psi03[st:en]), label=r'$\Omega_{03} =$' + str(f03))
-        plt.plot(t_ps[st:en], np.abs(oX1eig[1, 4]) * np.abs(psi14[st:en]), label=r'$\Omega_{14} =$' + str(f14))
-        plt.plot(t_ps[st:en], np.abs(oX1eig[1, 5]) * np.abs(psi15[st:en]), label=r'$\Omega_{15} =$' + str(f15))
-        plt.plot(t_ps[st:en], np.abs(oX1eig[3, 7]) * np.abs(psi37[st:en]), label=r'$\Omega_{37} =$' + str(f37))
-        plt.plot(t_ps[st:en], np.abs(oX1eig[3, 8]) * np.abs(psi38[st:en]), label=r'$\Omega_{38} =$' + str(f38))
-        plt.plot(t_ps[st:en], np.abs(oX1eig[1, 3]) * np.abs(psi13[st:en]), label=r'$\Omega_{13} =$' + str(f13))
+        plt.plot(self.t_ps[st:en], np.abs(oX1eig[0, 1]) * np.abs(psi01[st:en]), label=r'$\Omega_{01} =$' + str(f01))
+        plt.plot(self.t_ps[st:en], np.abs(oX1eig[0, 2]) * np.abs(psi02[st:en]), label=r'$\Omega_{02} =$' + str(f02))
+        plt.plot(self.t_ps[st:en], np.abs(oX1eig[0, 3]) * np.abs(psi03[st:en]), label=r'$\Omega_{03} =$' + str(f03))
+        plt.plot(self.t_ps[st:en], np.abs(oX1eig[1, 4]) * np.abs(psi14[st:en]), label=r'$\Omega_{14} =$' + str(f14))
+        plt.plot(self.t_ps[st:en], np.abs(oX1eig[1, 5]) * np.abs(psi15[st:en]), label=r'$\Omega_{15} =$' + str(f15))
+        plt.plot(self.t_ps[st:en], np.abs(oX1eig[3, 7]) * np.abs(psi37[st:en]), label=r'$\Omega_{37} =$' + str(f37))
+        plt.plot(self.t_ps[st:en], np.abs(oX1eig[3, 8]) * np.abs(psi38[st:en]), label=r'$\Omega_{38} =$' + str(f38))
+        plt.plot(self.t_ps[st:en], np.abs(oX1eig[1, 3]) * np.abs(psi13[st:en]), label=r'$\Omega_{13} =$' + str(f13))
 
         #plt.ylim(-0.005,0.02)
         
@@ -480,39 +468,22 @@ class Plots(Operations):
     def energy_transfer(self):
         plt.figure(7)
 
-        Iv = self.identity_vib()
-        b = self.destroy()
-        Iv = self.identity_vib()
-        Ie = sp.eye(2, 2).tocsr()
-        oB1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
-        oB2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
-        oX2 = oB2 + oB2.getH()
-        oX1 = oB1 + oB1.getH()
-
         st = 0000
         en = 13000  # P_el.shape[2]
         itvl = 3    #time interval?
 
-
         tmax_ps = 4
         tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
-        # dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
-                                                        # automatically choose the best time step for calculation.
         steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
-
-        # rhoT, t = self.time_evol_me(tmax_ps)
-
-        t_cm = self.t / (2 * constant.pi)
-        t_ps = (t_cm * 1e12) / (100 * constant.c)
 
         #COULD MOVE THESE INTO INIT
         oE1 = self.exciton_operator(1, 1)
         oE2 = self.exciton_operator(2, 2)
         oE1E2 = self.exciton_operator(1, 2)
 
-        oE1mImI = sp.kron(oE1, sp.kron(Iv, Iv)).tocsr()
-        oE2mImI = sp.kron(oE2, sp.kron(Iv, Iv)).tocsr()
-        oE1E2mImI = sp.kron(oE1E2, sp.kron(Iv, Iv)).tocsr()
+        oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
+        oE2mImI = sp.kron(oE2, sp.kron(self.Iv, self.Iv)).tocsr()
+        oE1E2mImI = sp.kron(oE1E2, sp.kron(self.Iv, self.Iv)).tocsr()
 
         M1thermal = self.thermal(self.w1)
         M2thermal = self.thermal(self.w2)
@@ -531,21 +502,15 @@ class Plots(Operations):
         for i in np.arange(steps):
             ex12[i] = np.abs(np.trace(oE1E2mImI.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
 
-        x1 = self.oper_evol(oX1, self.rhoT, self.t,  tmax_ps)
-        x2 = self.oper_evol(oX2, self.rhoT, self.t,  tmax_ps)  # can also pass a time step if necessary
-        elta = np.int(np.round(((2 * constant.pi) / self.omega) / self.dt))
-        c_X12 = self.corrfunc(x1, x2, elta)
+        # print(t_ps.shape)
+        # print(c_X12.shape)
+        # print(np.arange(0,en,itvl).shape)
+        # print(np.arange(0,en,itvl).shape)
 
-
-        print(t_ps.shape)
-        print(c_X12.shape)
-        print(np.arange(0,en,itvl).shape)
-        print(np.arange(0,en,itvl).shape)
-
-        plt.plot(t_ps[0:en], ex1[0:en], label=r'$|E_{1}\rangle\langle E_{1}|$')
-        plt.plot(t_ps[0:en], ex2[0:en], label=r'$|E_{2}\rangle\langle E_{2}|$')
-        plt.plot(t_ps[0:en], ex12[0:en], label=r'$||E_{1}\rangle\langle E_{2}||$')
-        plt.plot(t_ps[np.arange(0,en,itvl)],c_X12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+        plt.plot(self.t_ps[0:en], ex1[0:en], label=r'$|E_{1}\rangle\langle E_{1}|$')
+        plt.plot(self.t_ps[0:en], ex2[0:en], label=r'$|E_{2}\rangle\langle E_{2}|$')
+        plt.plot(self.t_ps[0:en], ex12[0:en], label=r'$||E_{1}\rangle\langle E_{2}||$')
+        plt.plot(self.t_ps[np.arange(0,en,itvl)],self.c_X12[np.arange(0,en,itvl)],'o',markersize=1,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
 
         plt.xlabel('Time ($ps$)')
         # plt.xlim([0,5])
@@ -558,22 +523,14 @@ class Plots(Operations):
         H= self.hamiltonian()
         vals, eigs = np.linalg.eigh(H.todense())
 
-        Iv = self.identity_vib()
-        Ie = sp.eye(2, 2).tocsr()
-        b = self.destroy()
-
         M1thermal = self.thermal(self.w1)
         M2thermal = self.thermal(self.w2)
         oE2 = sp.kron(self.E2, self.E2.getH()).tocsr()
         P0 = sp.kron(oE2, sp.kron(M1thermal, M2thermal)).todense()
         P0eig = eigs.getH() * P0 * eigs
-        oB1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
-        oB2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
 
-        oX1 = oB1 + oB1.getH()
-        oX2 = oB2 + oB2.getH()
-        oX1eig = eigs.getH() * oX1 * eigs
-        oX2eig = eigs.getH() * oX2 * eigs
+        oX1eig = eigs.getH() * self.oX1 * eigs
+        oX2eig = eigs.getH() * self.oX2 * eigs
         
         coefx1 = np.multiply(oX1eig, P0eig)
         coefx2 = np.multiply(oX2eig, P0eig)
@@ -583,12 +540,8 @@ class Plots(Operations):
         
         tmax_ps = 4
         tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
-        # dt = ((2 * constant.pi) / self.omega) / 100  # 0.0001 # time steps at which we want to record the data. The solver will
-                                                        # automatically choose the best time step for calculation.
-        steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
-        # rhoT, t = self.time_evol_me(tmax_ps)
-        t_cm = self.t / (2 * constant.pi)
 
+        steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
         
         N= self.n_cutoff
         omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(
@@ -597,9 +550,9 @@ class Plots(Operations):
 
         count4 = time.time()
 
-        sampleratecm = 1/(t_cm[1]-t_cm[0])
+        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
         freqres1 = 0.5
-        ftlen = (t_cm[1]-t_cm[0])*np.arange(int(sampleratecm/freqres1))
+        ftlen = (self.t_cm[1]-self.t_cm[0])*np.arange(int(sampleratecm/freqres1))
         anaX1array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
         anaX2array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
         anaX1 = np.zeros(np.size(ftlen))
@@ -636,15 +589,91 @@ class Plots(Operations):
         plt.yticks([0])
         plt.title(r'Components of $\langle X\rangle$ at $T=2ps$')
 
+    def q_correlations(self):
+
+        ##put these in init
+        M1thermal = self.thermal(self.w1)
+        M2thermal = self.thermal(self.w2)
+
+        oE2 = sp.kron(self.E2, self.E2.getH()).tocsr()
+        P0 = sp.kron(oE2, sp.kron(M1thermal, M2thermal)).todense()
+        print("shape(P0) = ", np.shape(P0))
+
+
+        counta = time.time()
+
+        q_mutual = []
+        c_info = []
+        q_discord = []
+        corr_times = []
+
+        dtperps = (100 * constant.c * 2 * constant.pi * 1e-12) / self.dt
+        maxstep = np.shape(self.rhoT)[0] #np.int(np.round(12*dtperps))
+        N= self.n_cutoff
+                            #maxstep
+        for i in np.arange(0,maxstep,500):
+
+            test_matrix = self.rhoT[i,:].reshape(np.shape(P0)[0],np.shape(P0)[1])
+            quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 1, 2)
+            q_mutual.append(quantum_mutual_info)
+            c_info.append(classical_info)
+            q_discord.append(quantum_discord)
+            corr_times.append(self.t_ps[i])
+            print(i)
+
+        q_mutual = np.array(q_mutual)
+        c_info = np.array(c_info)
+        q_discord = np.array(q_discord)
+        corr_times = np.array(corr_times)
+
+        countb = time.time()
+
+        print('Quantum Correlation Measures =',countb-counta)
+
+        #QUANTUM PLOT
+        FigureA = plt.figure(14)
+
+        en = 26000 #np.shape(self.t_ps)[0]-10 #13000
+        st = 000
+
+        itvl = 5
+        axA = FigureA.add_subplot(111)
+        axA.plot(corr_times,c_info,label=r'Classical Info')
+        axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
+        axA.plot(corr_times,q_discord,label=r'Discord')
+        axA.set_xlabel('Time (ps)')
+        axA.set_xlim([0,8])
+        #axA.set_yticks([])
+
+        axB = axA.twinx()
+        
+        print(np.arange(st,en,itvl))
+        #axB.plot(self.t_ps[np.arange(st,en,itvl)],self.c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+        #axB.grid()
+        axA.grid()
+        #axB.legend(bbox_to_anchor=([0.3,0.8]))
+        axA.legend(bbox_to_anchor=([0.9,0.8]))
+
+        #plt.legend()
+
+    def test(self):
+        print("dt = ", self.dt)
+        print("t_ps shape = ", np.shape(self.t_ps))
+        print("rhoT size = ", np.shape(self.rhoT))
+        print("c_X12 size  = ", np.shape(self.c_X12))
+        dtperps = (100 * constant.c * 2 * constant.pi * 1e-12) / self.dt
+        print("dtperps = ", dtperps)
+
 if __name__ == "__main__":
   
-    # print(foo.FooClass.blah())
-    #plot = plots.Plots(rate_swap=True)
     # tmax_ps = 4
     plot = Plots(rate_swap=True)
 
     #plot.sync_evol()
-    plot.coherences()
+    #plot.coherences()
     #plot.energy_transfer()
     #plot.fourier()
+    plot.test()
+    plot.q_correlations()
+   
     plt.show()
