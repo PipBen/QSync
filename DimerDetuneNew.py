@@ -46,6 +46,7 @@ class DimerDetune:
         #electronic states
         self.e1 = 0 + self.w1 * self.huang
         self.e2 = 1042 + self.w2 * self.huang  # 946.412
+
         self.de = self.e2 - self.e1
 
         #dipole-dipole coupling strength
@@ -86,7 +87,7 @@ class DimerDetune:
         self.N = n_cutoff  # 7
         self.dimH = 2 * n_cutoff**2  # Hilbert space dimension
 
-        # Exciton Vectors
+        # Exciton Vectors - Exciton Basis
         self.E1 = sp.lil_matrix(np.matrix([[1.], [0.]])).tocsr()
         self.E2 = sp.lil_matrix(np.matrix([[0.], [1.]])).tocsr()
 
@@ -96,15 +97,15 @@ class DimerDetune:
     def electron_operator(self, e1, e2):
         """returns |e_1><e_2|"""
         if e1 == 1:
-            e_1 = self.e1
+            e_1 = self.E1
         elif e1 == 2:
-            e_1 = self.e2
+            e_1 = self.E2
         else:
             raise Exception('e1 should be 1 or 2 for |e_1> or |e_2>')
         if e2 == 1:
-            e_2 = self.e1
+            e_2 = self.E1
         elif e2 == 2:
-            e_2 = self.e2
+            e_2 = self.E2
         else:
             raise Exception('e2 should be 1 or 2 for <e_1| or <e_2|')
         return sp.kron(e_1, e_2.getH())
@@ -196,10 +197,10 @@ class DimerDetune:
         return H
 
     def militello_hamiltonian(self):
-        oe11 = self.exciton_operator(1,1)
-        oe12 = self.exciton_operator(1,2)
-        oe22 = self.exciton_operator(2,2)
-        oe21 = self.exciton_operator(2,1)
+        oe11 = self.electron_operator(1,1)
+        oe12 = self.electron_operator(1,2)
+        oe22 = self.electron_operator(2,2)
+        oe21 = self.electron_operator(2,1)
         sigmaz = oe22 - oe11
         sigmax = oe21 +oe12
         b = self.destroy()
@@ -638,7 +639,6 @@ class Plots(Operations):
         oE2 = sp.kron(self.E2, self.E2.getH()).tocsr()
         P0 = sp.kron(oE2, sp.kron(M1thermal, M2thermal)).todense()
         print("shape(P0) = ", np.shape(P0))
-
 
         counta = time.time()
 
