@@ -200,19 +200,20 @@ class DimerDetune:
         oe12 = self.exciton_operator(1,2)
         oe22 = self.exciton_operator(2,2)
         oe21 = self.exciton_operator(2,1)
-        sigmax = oe22 - oe11
+        sigmaz = oe22 - oe11
+        sigmax = oe21 +oe12
         b = self.destroy()
         Iv = self.identity_vib()
         Ie = sp.eye(2, 2).tocsr()
-        phi1 = 0
+        phi1 = np.pi
         phi2 = 0
 
             #sp.kron(self.e1 * oe11, Iv) + sp.kron(self.e2 * oe22, Iv)\
-        H=  sp.kron((self.de / 2) * sigmax, sp.kron(Iv, Iv)) \
+        H=  sp.kron((self.de / 2) * sigmaz, sp.kron(Iv, Iv)) \
             + sp.kron(Ie, sp.kron(self.w1 * b.getH() * b, Iv)) \
             + sp.kron(Ie, sp.kron(Iv, self.w2 * b.getH() * b)) \
-            + self.g1 * sp.kron(sp.kron(cmath.exp(1j*phi1) * b + cmath.exp(-1j*phi1) * b.getH(), Iv), sigmax) \
-            + self.g2 * sp.kron(sp.kron(Iv, cmath.exp(1j*phi2) * b + cmath.exp(-1j*phi2) * b.getH()), sigmax)
+            + self.g1 * sp.kron(sigmax, sp.kron(cmath.exp(1j*phi1) * b + cmath.exp(-1j*phi1) * b.getH(), Iv)) \
+            + self.g2 * sp.kron(sigmax, sp.kron(Iv, cmath.exp(1j*phi2) * b + cmath.exp(-1j*phi2) * b.getH()))
             
         return H
 
