@@ -20,18 +20,18 @@ import numpy as np
 import scipy.constants as constant
 import scipy.integrate as integrate
 import time
+import cmath
 import scipy.sparse as sp
 import scipy.linalg as sl
 import matplotlib.pylab as plt
 import QCcorrelations as QC
 #from plots import Plots
-#from foo import FooClass
-
 
 class DimerDetune:
     """Defines properties and functions of the vibronic dimer system"""
-    def __init__(self, rate_swap, n_cutoff=5, temperature=298):
+    def __init__(self, hamiltonian,  rate_swap, n_cutoff=5, temperature=298):
         #initialise properties of dimer 
+        self.hamiltonian = hamiltonian 
         self.n_cutoff =n_cutoff
         self.temperature =  temperature
 
@@ -39,7 +39,7 @@ class DimerDetune:
         self.huang = 0.0578
         #initialise with no detuning
         self.omega = 1111
-        self.detuning = 1.00
+        self.detuning = 1
         self.w1 = self.omega
         self.w2 = self.detuning * self.omega
         
@@ -92,6 +92,23 @@ class DimerDetune:
 
         self.t0 = 0
         self.dt = ((2 * constant.pi) / self.omega) / 100
+
+    def electron_operator(self, e1, e2):
+        """returns |e_1><e_2|"""
+        if e1 == 1:
+            e_1 = self.e1
+        elif e1 == 2:
+            e_1 = self.e2
+        else:
+            raise Exception('e1 should be 1 or 2 for |e_1> or |e_2>')
+        if e2 == 1:
+            e_2 = self.e1
+        elif e2 == 2:
+            e_2 = self.e2
+        else:
+            raise Exception('e2 should be 1 or 2 for <e_1| or <e_2|')
+        return sp.kron(e_1, e_2.getH())
+
 
     def exciton_operator(self, e1, e2):
         """returns |E_e1><E_e2|"""
@@ -158,13 +175,13 @@ class DimerDetune:
         h = sp.kron(operator, sp.eye(operator.shape[1])).tocsr() - sp.kron(sp.eye(operator.shape[1]), operator.transpose()).tocsr()
         return h
 
-    def hamiltonian(self):
+    def original_hamiltonian(self):
         """dE/2 sigma_z + omega_1 n_1 + omega_2 n_2 + g_1 |1><1| (b_1 + b^dag_1) + g_2 |2><2| (b_2 + b^dag_2 )
         |1(2)><1(2)| is the site basis ground (excited) state"""
         oE1 = self.exciton_operator(1, 1)
         oE2 = self.exciton_operator(2, 2)
         sigmaz = oE2 - oE1   # note that this is backwards compared to definition in quantum information approaches
-        b = self.destroy()
+        b = self.destroy() #relation
         Iv = self.identity_vib()
         eldis1 = self.a_k(1)
         eldis2 = self.a_k(2)
@@ -178,8 +195,32 @@ class DimerDetune:
 
         return H
 
+    def militello_hamiltonian(self):
+        oe11 = self.exciton_operator(1,1)
+        oe12 = self.exciton_operator(1,2)
+        oe22 = self.exciton_operator(2,2)
+        oe21 = self.exciton_operator(2,1)
+        sigmax = oe22 - oe11
+        b = self.destroy()
+        Iv = self.identity_vib()
+        Ie = sp.eye(2, 2).tocsr()
+        phi1 = 0
+        phi2 = 0
+
+            #sp.kron(self.e1 * oe11, Iv) + sp.kron(self.e2 * oe22, Iv)\
+        H=  sp.kron((self.de / 2) * sigmax, sp.kron(Iv, Iv)) \
+            + sp.kron(Ie, sp.kron(self.w1 * b.getH() * b, Iv)) \
+            + sp.kron(Ie, sp.kron(Iv, self.w2 * b.getH() * b)) \
+            + self.g1 * sp.kron(sp.kron(cmath.exp(1j*phi1) * b + cmath.exp(-1j*phi1) * b.getH(), Iv), sigmax) \
+            + self.g2 * sp.kron(sp.kron(Iv, cmath.exp(1j*phi2) * b + cmath.exp(-1j*phi2) * b.getH()), sigmax)
+            
+        return H
+
     def liouvillian(self):
-        H = self.hamiltonian()
+        if(self.hamiltonian == "militello"):
+            H = self.militello_hamiltonian()
+        else:
+            H = self.original_hamiltonian()
         Iv = self.identity_vib()
         Ie = sp.eye(2, 2).tocsr()
         ELdis1 = sp.kron(self.a_k(1), sp.kron(Iv, Iv)).tocsr()
@@ -290,9 +331,13 @@ class Operations(DimerDetune):
 
 class Plots(Operations):
 
-    def __init__(self, rate_swap, n_cutoff=5, temperature=298):
-        DimerDetune.__init__(self, rate_swap, n_cutoff=5, temperature=298)
-        self.tmax_ps = 8
+    def __init__(self, hamiltonian, rate_swap, n_cutoff=5, temperature=298):
+        DimerDetune.__init__(self, hamiltonian,  rate_swap, n_cutoff=5, temperature=298)
+        if(hamiltonian == "militello"):
+            self.H = self.militello_hamiltonian()
+        else:
+            self.H = self.original_hamiltonian()
+        self.tmax_ps = 4
         self.rhoT , self.t  = self.time_evol_me(self.tmax_ps)
 
         b = self.destroy()
@@ -323,20 +368,19 @@ class Plots(Operations):
         en = 13000
         st = 0000
         itvl = 5
+
         axA = FigureA.add_subplot(111)
         axA.plot(self.t_ps[np.arange(st, en, itvl)], self.x2[np.arange(st, en, itvl)], label=r'$\langle X_2\rangle$')
         axA.plot(self.t_ps[np.arange(st, en, itvl)], self.x1[np.arange(st, en, itvl)], label=r'$\langle X_1\rangle$')
-
-        plt.ylabel('$<x>$')
-        plt.ylabel('$C_{<X_1><X_2>}$',fontsize=12)
+        axA.set_ylabel('$<X_i>$')
         axA.set_xlabel('Time (ps)')
-        # axA.set_xlim([0,10])
-        axA.set_yticks([])
+
         axB = axA.twinx()
+        axB.set_ylabel('$C_{<X_1><X_2>}$',fontsize=12)
         axB.plot(self.t_ps[np.arange(st, en, itvl)], self.c_X12[np.arange(st, en, itvl)], 'r-o', markevery=0.05, markersize=5,
                  label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
-        axB.grid()
-        axA.grid()
+        # axB.grid()
+        # axA.grid()
         axB.legend(bbox_to_anchor=(0.9, 0.6))
         axA.legend()
         # plt.savefig('cXX_dw004_QC.pdf',bbox_inches='tight',dpi=600,format='pdf',transparent=True)
@@ -346,8 +390,7 @@ class Plots(Operations):
         """Complex magnitude of exciton-vibration coherences scaled by the absolute value
         of their corresponding position matrix element in the open quantum system evolution."""
 
-        H= self.hamiltonian()
-        vals, eigs = np.linalg.eigh(H.todense())
+        vals, eigs = np.linalg.eigh(self.H.todense())
         oX1eig = eigs.getH() * self.oX1 * eigs
 
         M1thermal = self.thermal(self.w1)
@@ -430,6 +473,7 @@ class Plots(Operations):
 
         FigureB = plt.figure(5)
         plt.xlabel('Time ($ps$)')
+        plt.ylabel('$|X_{i,jk}| ||\\rho_{jk}(t)||$')
         plt.grid()
 
         st = 0000
@@ -459,7 +503,7 @@ class Plots(Operations):
 
         #plt.ylim(-0.005,0.02)
         
-        plt.legend(bbox_to_anchor=([1, 1]), title="Oscillatory Frequencies")
+        plt.legend(bbox_to_anchor=([1, 1]), title="Oscillatory Frequencies / $cm^-1$")
         plt.title(r'$\omega_2$ = ' + np.str(np.round(self.w2, decimals=2)) + ' $\omega_1$ = ' + np.str(
             np.round(self.w1, decimals=2)))  # $\omega=1530cm^{-1}$')
 
@@ -502,10 +546,6 @@ class Plots(Operations):
         for i in np.arange(steps):
             ex12[i] = np.abs(np.trace(oE1E2mImI.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
 
-        # print(t_ps.shape)
-        # print(c_X12.shape)
-        # print(np.arange(0,en,itvl).shape)
-        # print(np.arange(0,en,itvl).shape)
 
         plt.plot(self.t_ps[0:en], ex1[0:en], label=r'$|E_{1}\rangle\langle E_{1}|$')
         plt.plot(self.t_ps[0:en], ex2[0:en], label=r'$|E_{2}\rangle\langle E_{2}|$')
@@ -520,8 +560,7 @@ class Plots(Operations):
 
     def fourier(self):
 
-        H= self.hamiltonian()
-        vals, eigs = np.linalg.eigh(H.todense())
+        vals, eigs = np.linalg.eigh(self.H.todense())
 
         M1thermal = self.thermal(self.w1)
         M2thermal = self.thermal(self.w2)
@@ -643,18 +682,16 @@ class Plots(Operations):
         axA.plot(corr_times,q_discord,label=r'Discord')
         axA.set_xlabel('Time (ps)')
         axA.set_xlim([0,8])
-        #axA.set_yticks([])
 
         axB = axA.twinx()
+        axB.plot(self.t_ps[np.arange(st,en,itvl)],self.c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
         
         print(np.arange(st,en,itvl))
-        #axB.plot(self.t_ps[np.arange(st,en,itvl)],self.c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+        
         #axB.grid()
-        axA.grid()
-        #axB.legend(bbox_to_anchor=([0.3,0.8]))
+        #axA.grid()
+        axB.legend(bbox_to_anchor=([0.3,0.8]))
         axA.legend(bbox_to_anchor=([0.9,0.8]))
-
-        #plt.legend()
 
     def test(self):
         print("dt = ", self.dt)
@@ -667,13 +704,13 @@ class Plots(Operations):
 if __name__ == "__main__":
   
     # tmax_ps = 4
-    plot = Plots(rate_swap=True)
+    plot = Plots(hamiltonian="militello", rate_swap=False)
 
-    #plot.sync_evol()
-    #plot.coherences()
-    #plot.energy_transfer()
+    plot.sync_evol()
+    plot.coherences()
+    plot.energy_transfer()
     #plot.fourier()
-    plot.test()
-    plot.q_correlations()
+    #plot.test()
+    #plot.q_correlations()
    
     plt.show()
