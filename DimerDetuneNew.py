@@ -25,11 +25,12 @@ import scipy.sparse as sp
 import scipy.linalg as sl
 import matplotlib.pylab as plt
 import QCcorrelations as QC
+import pandas
 # from Plots import Plots
 
 class DimerDetune:
     """Defines properties and functions of the vibronic dimer system"""
-    def __init__(self, hamiltonian, phi1, phi2,  rate_swap, n_cutoff=5, temperature=298):
+    def __init__(self, hamiltonian, phi1, phi2,  rate_swap, n_cutoff=8, temperature=298):
         """Initialise variables assosciated with the dimer system
         Arguments:
             self - instance of DimerDetune class
@@ -89,7 +90,8 @@ class DimerDetune:
          # %% scaling effects from setting 2pi x c = 1 and hbar = 1
         self.r_th = self.thermal_dissipation / (2 * constant.pi)
         self.r_el = self.electronic_dephasing / (2 * constant.pi)
-        #self.r_el = self.r_th
+        # self.r_el = 0
+        # self.r_th = 0
 
         self.r_v1 = self.r_th  # 6 # cm-1
         self.r_v2 = self.r_th  # 6 # cm-1
@@ -154,6 +156,7 @@ class DimerDetune:
         mode2 = np.matrix(np.zeros([self.N, 1]))
         mode1[k, 0] = 1
         mode2[j, 0] = 1
+        return sp.kron(mode1,mode2.getH())
 
     def destroy(self):
         """Annihilation operator on vibrational Fock space"""
@@ -264,15 +267,6 @@ class DimerDetune:
         return rho0
 
 class Operations(DimerDetune):
-#    """input class dimer needs:
-#    Methods:
-#       liouvillian
-#       hamiltonian
-#       init_state
-#   Arguments:
-#       dimH - Hilbert space dimenstion
-#       omega - some frequency of interest to be resolved by time step
-#       """
 
     def steady_state(self):
         l = self.liouvillian()
@@ -322,8 +316,6 @@ class Operations(DimerDetune):
 
     def oper_evol(self, operator, rhoT, t, tmax_ps):
         """calculates the time evolution of an operator"""
-        #from coherences- MAKE COMPATIBLE WITH COHERENCES AND OTHERS
-       
         steps = len(rhoT[:, 0])
         N = int(np.sqrt(len(rhoT[0, :])))
         oper = np.zeros(steps, dtype=complex)
@@ -351,10 +343,11 @@ class Operations(DimerDetune):
             df1df2bar[i] = integrate.trapz(df1df2[i:i + delta + 1])
             df1sqbar[i] = integrate.trapz(df1sq[i:i + delta + 1])
             df2sqbar[i] = integrate.trapz(df2sq[i:i + delta + 1])
-        print(df1sqbar)
-        print(df2sqbar)
         C = df1df2bar / np.sqrt(df1sqbar * df2sqbar)
         return C
+
+    def matrix_element(self,bra, operator, ket):
+        return bra.getH() * operator * ket
 
 class Plots(Operations):
 
@@ -416,6 +409,50 @@ class Plots(Operations):
             fig.savefig('sync_evol_original.png',bbox_inches='tight',dpi=600)
 
 
+    def matrix_elements(self):
+        vals, eigs = np.linalg.eigh(self.H.todense())
+        
+        #elec
+        oe12 = self.electron_operator(1,2)    
+        oe21 = self.electron_operator(2,1)
+        sigmax = oe21 + oe12
+        Ie = sp.eye(2, 2).tocsr()
+
+        #vib
+        vib_gs_op = self.vib_mode_operator(0, 0)
+        Iv = self.identity_vib()
+        
+        # j_k = [[0,1],[0,2],[0,3],[0,4],[0,5],[0,6]]
+        #j_k = [[2,1],[1,1],[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]]
+        j_k = [[1,3],[0,1],[0,2],[0,3]]
+
+        columns = []
+        for i in range(len(j_k)):
+            columns.append(str(j_k[i]))
+
+        
+
+        rows = ["X1", "X2", "sigmax", "vib gs"]
+        
+        oX1_kj = np.zeros(len(j_k))
+        oX2_kj = np.zeros(len(j_k))
+        sigmax_kj = np.zeros(len(j_k))
+        gs_kj = np.zeros(len(j_k))
+
+        for i in range(len(j_k)):
+            j = j_k[i][0]
+            k = j_k[i][1]
+
+            oX1_kj[i] = self.matrix_element(eigs[:, k], self.oX1, eigs[:, j])
+            oX2_kj[i] = self.matrix_element(eigs[:, k], self.oX2, eigs[:, j])
+            sigmax_kj[i] = self.matrix_element(eigs[:, k], sp.kron(sigmax, sp.kron(Iv, Iv)), eigs[:, j])
+            gs_kj[i] = self.matrix_element(eigs[:, k], sp.kron(Ie, sp.kron(vib_gs_op,vib_gs_op)), eigs[:, j])
+
+        print("sigmax = ", sigmax)
+    
+        elements = np.stack((oX1_kj, oX2_kj, sigmax_kj, gs_kj))
+        df = pandas.DataFrame(data = elements, index = rows, columns=columns)
+        print(df)
 
     def coherences(self):
         """Complex magnitude of exciton-vibration coherences scaled by the absolute value
@@ -425,17 +462,21 @@ class Plots(Operations):
         oX1eig = eigs.getH() * self.oX1 * eigs
 
         fig = plt.figure(2)
-        plt.xlabel('Time ($ps$)', fontsize =13)
-        plt.ylabel('$|X_{i,jk}| ||\\rho_{jk}(t)||$', fontsize =13)
-        plt.grid()
+        axA = fig.add_subplot(111)
+        axA.set_xlabel('Time ($ps$)', fontsize =13)
+        axA.set_ylabel('$|X_{i,jk}| ||\\rho_{jk}(t)||$', fontsize =13)
+        axA.grid()
 
         st = 0000
         en = 13300
+        itvl = 3 
 
         N= self.n_cutoff
         omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2).transpose()
-
-        n_m = [[1,3],[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8]] #coherences to plot
+        
+        n_m = [[1,3],[0,1],[0,2],[0,3]]
+        #n_m = [[2,1],[1,1],[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]]
+        #n_m = [[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]] #originals
         #n_m = [[0,4],[0,5],[0,6],[1,2],[2,1],[2,3],[2,2],[1,1]]
 
         for i in range(len(n_m)):
@@ -445,15 +486,20 @@ class Plots(Operations):
             opsi_nm = np.kron(eigs[:, n], eigs[:, m].getH())
             psi_nm = self.oper_evol(opsi_nm,self.rhoT, self.t, self.tmax_ps)
 
-            plt.plot(self.t_ps[st:en], np.abs(oX1eig[n, m]) * np.abs(psi_nm[st:en]), label="$\Omega_{" +str(n)+str(m) +"} =$" + str(f)) #get labelling right here -sort out some complex thing
+            plt.plot(self.t_ps[st:en], np.abs(oX1eig[n, m]) * np.abs(psi_nm[st:en]), label="$\Omega_{" +str(n)+str(m) +"} =$" + str(f)) 
 
-        # plt.xlim(0,2)
-        # plt.ylim(0,0.015)
+        plt.xlim(0,2.5)
+        plt.ylim(0,0.02)
         plt.legend(bbox_to_anchor=([1, 1]), title="Oscillatory Frequencies / $cm^-1$", fontsize =13)
-        #plt.title(r'$\omega_2$ = ' + np.str(np.round(self.w2, decimals=2)) + ' $\omega_1$ = ' + np.str(
-            #np.round(self.w1, decimals=2)), fontsize= 13)  # $\omega=1530cm^{-1}$')
+
+        # sync plot
+        # axB = axA.twinx()
+        # axB.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
+        # axB.plot(self.t_ps[np.arange(st, en, itvl)], self.c_X12[np.arange(st, en, itvl)], 'c-o', markevery=0.05, markersize=5,
+        #          label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+
         if(self.save_plots == True):
-            fig.savefig('Eigcoherences_original_rateswap_ZOOM2.png',bbox_inches='tight',dpi=600)
+            fig.savefig('Eigcoherences_original_rateswap_sample.png',bbox_inches='tight',dpi=600)
         fig.show()
 
     def energy_transfer(self):
@@ -462,10 +508,6 @@ class Plots(Operations):
         st = 0000
         en = 13300  # P_el.shape[2]
         itvl = 3    #time interval?
-
-        tmax_ps = 4
-        tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
-        steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
 
         #COULD MOVE THESE INTO INIT
         oE1 = self.exciton_operator(1, 1)
@@ -476,39 +518,47 @@ class Plots(Operations):
         oE2mImI = sp.kron(oE2, sp.kron(self.Iv, self.Iv)).tocsr()
         oE1E2mImI = sp.kron(oE1E2, sp.kron(self.Iv, self.Iv)).tocsr()
 
-        M1thermal = self.thermal(self.w1)
-        M2thermal = self.thermal(self.w2)
-        oE2 = sp.kron(self.E2, self.E2.getH()).tocsr()
-        P0 = sp.kron(oE2, sp.kron(M1thermal, M2thermal)).todense()
-
-        #oper_evol these
-        ex1 = np.zeros((steps))
-        for i in np.arange(steps):
-            ex1[i] = np.real(np.trace(oE1mImI.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
-
-        ex2 = np.zeros((steps))
-        for i in np.arange(steps):
-            ex2[i] = np.real(np.trace(oE2mImI.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
-
-        ex12 = np.zeros((steps))
-        for i in np.arange(steps):
-            ex12[i] = np.abs(np.trace(oE1E2mImI.dot(self.rhoT[i, :].reshape(np.shape(P0)[0], np.shape(P0)[1]))))
+        ex1 = self.oper_evol(oE1mImI,self.rhoT, self.t, self.tmax_ps)
+        ex2 = self.oper_evol(oE2mImI,self.rhoT, self.t, self.tmax_ps)
+        ex12 = self.oper_evol(oE1E2mImI,self.rhoT, self.t, self.tmax_ps)
 
         axA = fig.add_subplot(111)
         axA.plot(self.t_ps[0:en], ex1[0:en], label=r'$|E_{1}\rangle\langle E_{1}|$')
         axA.plot(self.t_ps[0:en], ex2[0:en], label=r'$|E_{2}\rangle\langle E_{2}|$')
-        axA.plot(self.t_ps[0:en], ex12[0:en], label=r'$|E_{1}\rangle\langle E_{2}|$')
-        axB = axA.twinx()
-        axB.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
-        axB.plot(self.t_ps[np.arange(st, en, itvl)], self.c_X12[np.arange(st, en, itvl)], 'r-o', markevery=0.05, markersize=5,
+        #axA.plot(self.t_ps[0:en], ex12[0:en], label=r'$|E_{1}\rangle\langle E_{2}|$')
+        
+        axC = axA.twinx()
+        #axC.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
+        axC.plot(self.t_ps[np.arange(st, en, itvl)], self.c_X12[np.arange(st, en, itvl)], 'c-o', markevery=0.05, markersize=5,
                  label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+
+        axB = axA.twinx()
+        #axB.set_ylabel('$|X_{i,jk}| ||\\rho_{jk}(t)||$', fontsize =13)
+
+        vals, eigs = np.linalg.eigh(self.H.todense())
+        oX1eig = eigs.getH() * self.oX1 * eigs
+
+        N= self.n_cutoff
+        omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2).transpose()
+
+        n_m = [] #coherences to plot
+
+        for i in range(len(n_m)):
+            n = n_m[i][0]
+            m = n_m[i][1]
+            f = np.round(np.abs(omegaarray[n, m]), decimals=2)
+            opsi_nm = np.kron(eigs[:, n], eigs[:, m].getH())
+            psi_nm = self.oper_evol(opsi_nm,self.rhoT, self.t, self.tmax_ps)
+
+            axB.plot(self.t_ps[st:en], np.abs(oX1eig[n, m]) * np.abs(psi_nm[st:en]), label="$\Omega_{" +str(n)+str(m) +"} =$" + str(f)) 
     
+
         fig.legend(loc=(0.6,0.6), fontsize =13)
         plt.xlabel('Time ($ps$)', fontsize =13)
         plt.grid()
         fig.show()
         if(self.save_plots == True):
-            fig.savefig('ET_original_rateswap.png',bbox_inches='tight',dpi=600)
+            fig.savefig('ET_withsync_rateswap.png',bbox_inches='tight',dpi=600)
 
     def fourier(self):
         vals, eigs = np.linalg.eigh(self.H.todense())
@@ -652,6 +702,11 @@ class Plots(Operations):
             fig.savefig('Q_Correlations_original_rateswap.png',bbox_inches='tight',dpi=600)
 
     def test(self):
+        print("oX1= ", np.shape(self.oX1.toarray()))
+        oe12 = self.electron_operator(1,2)       
+        oe21 = self.electron_operator(2,1)
+        sigmax = oe21 + oe12
+        print("sigmax= ", sigmax.toarray())
         print("dt = ", self.dt)
         print("t_ps shape = ", np.shape(self.t_ps))
         print("rhoT size = ", np.shape(self.rhoT))
@@ -662,16 +717,18 @@ class Plots(Operations):
         print("dissrate = ",self.taudiss)
 
 
+
 if __name__ == "__main__":
   
     # tmax_ps = 4
-    plot = Plots(hamiltonian="original", phi1 = 0.8, phi2 =0, rate_swap=True, save_plots )
+    plot = Plots(hamiltonian="original", phi1 = 0.8, phi2 =0, rate_swap=True, save_plots = True)
 
-    plot.sync_evol()
+    plot.matrix_elements()
+    # plot.sync_evol()
     plot.coherences()
     plot.energy_transfer()
     #plot.fourier()
-    plot.test()
+    #plot.test()
     #plot.q_correlations()
     plt.show()
 
