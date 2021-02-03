@@ -30,13 +30,13 @@ import pandas
 
 class DimerDetune:
     """Defines properties and functions of the vibronic dimer system"""
-    def __init__(self, hamiltonian, phi1, phi2,  rate_swap, n_cutoff=8, temperature=298):
+    def __init__(self, hamiltonian, r_th, r_el, phi1, phi2, n_cutoff, temperature):
         """Initialise variables assosciated with the dimer system
         Arguments:
             self - instance of DimerDetune class
             hamiltonian - options are 'original' and 'militello'
             phi1, phi2 - synchronisation phase parameters for militello hamiltonian
-            rate_swap - boolean - reverses dissipation and dephasing rates
+            thermal_dissipation, electronic_dephasing - rates in ps^-1
             n_cutoff - cutoff for vibrational mode maximum 
             temperature"""
         #initialise properties of dimer 
@@ -48,7 +48,7 @@ class DimerDetune:
         self.huang = 0.0578
         #initialise with no detuning
         self.omega = 1111
-        self.detuning = 1
+        self.detuning = 1.05
         self.w1 = self.omega
         self.w2 = self.detuning * self.omega
         
@@ -75,23 +75,33 @@ class DimerDetune:
         self.kBT = (constant.k * temperature) / (constant.h * constant.c * 100)  # cm-1
         #rates.. where do these numbers come from?
 
-        if rate_swap ==True:
-            self.thermal_dissipation = 333.3564  # 70
-            self.electronic_dephasing = 33.564
-        else:
-            self.thermal_dissipation = 33.3564  # 70
-            self.electronic_dephasing = 333.564
+        # if rate_swap ==True:
+        #     #bigger is smaller 
+        #     self.thermal_dissipation = 40.564  # 70
+        #     self.electronic_dephasing = 66.3564
+        #     #self.thermal_dissipation = 333.564
+        #     #self.electronic_dephasing = 33.3564
+        # else:
+        #     #1
+        # self.thermal_dissipation = 33.3564  # 70
+        #     #0.1
+        # self.electronic_dephasing = 333.564
 
-        #  th=1 , deph=0.1ps rates - not used
-        self.taudiss = 1 / (1e-12 * self.thermal_dissipation * 100 * constant.c)
-        self.taudeph = 1 / (1e-12 * self.electronic_dephasing * 100 * constant.c)
+        #NEW- input in [ps]^-1
+        self.r_th = 1/(r_th* 1e-12 * 100 * constant.c * 2*constant.pi )
+        self.r_el = 1/(r_el*1e-12 * 100 * constant.c * 2*constant.pi )
+
+
+        # #  th=1 , deph=0.1ps rates - not used
+        # self.taudiss = 1 / (1e-12 * self.thermal_dissipation * 100 * constant.c)
+        # self.taudeph = 1 / (1e-12 * self.electronic_dephasing * 100 * constant.c)
 
         
-         # %% scaling effects from setting 2pi x c = 1 and hbar = 1
-        self.r_th = self.thermal_dissipation / (2 * constant.pi)
-        self.r_el = self.electronic_dephasing / (2 * constant.pi)
-        # self.r_el = 0
-        # self.r_th = 0
+        #  # %% scaling effects from setting 2pi x c = 1 and hbar = 1
+        # self.r_th = self.thermal_dissipation / (2 * constant.pi)
+        # self.r_el = self.electronic_dephasing / (2 * constant.pi)
+        # # self.r_el = 0
+        # # self.r_th = 0
 
         self.r_v1 = self.r_th  # 6 # cm-1
         self.r_v2 = self.r_th  # 6 # cm-1
@@ -205,11 +215,22 @@ class DimerDetune:
         eldis2 = self.a_k(2)
         Ie = sp.eye(2, 2).tocsr()
 
+        # if(self.phase_change == True):
+
+
         H = sp.kron((self.dE / 2) * sigmaz, sp.kron(Iv, Iv)) \
             + sp.kron(Ie, sp.kron(self.w1 * b.getH() * b, Iv)) \
             + sp.kron(Ie, sp.kron(Iv, self.w2 * b.getH() * b)) \
-            + self.g1 * sp.kron(eldis1, sp.kron((b + b.getH()), Iv)) \
-            + self.g2 * sp.kron(eldis2, sp.kron(Iv, (b + b.getH())))
+            + self.g1 * sp.kron(eldis1, sp.kron(cmath.exp(-1j*self.phi1)*b + cmath.exp(1j*self.phi1)*b.getH(), Iv)) \
+            + self.g2 * sp.kron(eldis2, sp.kron(Iv, cmath.exp(-1j*self.phi2) * b + cmath.exp(1j*self.phi2)*b.getH()))    
+
+            
+        # else:
+        #     H = sp.kron((self.dE / 2) * sigmaz, sp.kron(Iv, Iv)) \
+        #         + sp.kron(Ie, sp.kron(self.w1 * b.getH() * b, Iv)) \
+        #         + sp.kron(Ie, sp.kron(Iv, self.w2 * b.getH() * b)) \
+        #         + self.g1 * sp.kron(eldis1, sp.kron((b + b.getH()), Iv)) \
+        #         + self.g2 * sp.kron(eldis2, sp.kron(Iv, (b + b.getH())))
 
         return H
 
@@ -227,8 +248,8 @@ class DimerDetune:
         H=  sp.kron((self.de / 2) * sigmaz, sp.kron(Iv, Iv)) \
             + sp.kron(Ie, sp.kron(self.w1 * b.getH() * b, Iv)) \
             + sp.kron(Ie, sp.kron(Iv, self.w2 * b.getH() * b)) \
-            + self.g1 * sp.kron(sigmax, sp.kron(cmath.exp(1j*self.phi1) * b + cmath.exp(-1j*self.phi1) * b.getH(), Iv)) \
-            + self.g2 * sp.kron(sigmax, sp.kron(Iv, cmath.exp(1j*self.phi2) * b + cmath.exp(-1j*self.phi2) * b.getH()))
+            + self.g1 * sp.kron(sigmax, sp.kron(cmath.exp(-1j*self.phi1) * b + cmath.exp(1j*self.phi1) * b.getH(), Iv)) \
+            + self.g2 * sp.kron(sigmax, sp.kron(Iv, cmath.exp(-1j*self.phi2) * b + cmath.exp(1j*self.phi2) * b.getH()))
             
         return H
 
@@ -347,17 +368,17 @@ class Operations(DimerDetune):
         return C
 
     def matrix_element(self,bra, operator, ket):
-        return bra.getH() * operator * ket
+        return np.real(bra.getH() * operator * ket)
 
 class Plots(Operations):
 
-    def __init__(self, hamiltonian, phi1, phi2, rate_swap, save_plots, n_cutoff=5, temperature=298):
-        DimerDetune.__init__(self, hamiltonian, phi1, phi2, rate_swap, n_cutoff=5, temperature=298)
+    def __init__(self, hamiltonian, r_th, r_el, phi1, phi2, j_k, save_plots, n_cutoff, temperature, tmax_ps):
+        DimerDetune.__init__(self, hamiltonian, r_th, r_el, phi1, phi2,  n_cutoff, temperature)
         if(hamiltonian == "militello"):
             self.H = self.militello_hamiltonian()
         else:
             self.H = self.original_hamiltonian()
-        self.tmax_ps = 4.1
+        self.tmax_ps = tmax_ps
         self.rhoT , self.t  = self.time_evol_me(self.tmax_ps)
 
         b = self.destroy()
@@ -380,17 +401,18 @@ class Plots(Operations):
         self.elta = np.int(np.round(((2 * constant.pi) / self.omega) / self.dt))
         self.c_X12 = self.corrfunc(self.x1, self.x2, self.elta)
         self.save_plots = save_plots
+        self.j_k = j_k
 
 
     def sync_evol(self):
 
         fig = plt.figure(1)
-        en = 13321
+        en = self.tmax_ps* 13000//4 
         st = 0000
         itvl = 5
 
         axA = fig.add_subplot(111)
-        axA.set_xlim(0,4)
+        #axA.set_xlim(0,4)
         print(self.t_ps[np.arange(st, en, itvl)])
         axA.plot(self.t_ps[np.arange(st, en, itvl)], self.x2[np.arange(st, en, itvl)], label=r'$\langle X_2\rangle$')
         axA.plot(self.t_ps[np.arange(st, en, itvl)], self.x1[np.arange(st, en, itvl)], label=r'$\langle X_1\rangle$')
@@ -411,6 +433,7 @@ class Plots(Operations):
 
     def matrix_elements(self):
         vals, eigs = np.linalg.eigh(self.H.todense())
+        j_k = self.j_k
         
         #elec
         oe12 = self.electron_operator(1,2)    
@@ -422,15 +445,10 @@ class Plots(Operations):
         vib_gs_op = self.vib_mode_operator(0, 0)
         Iv = self.identity_vib()
         
-        # j_k = [[0,1],[0,2],[0,3],[0,4],[0,5],[0,6]]
-        #j_k = [[2,1],[1,1],[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]]
-        j_k = [[1,3],[0,1],[0,2],[0,3]]
-
+       
         columns = []
         for i in range(len(j_k)):
             columns.append(str(j_k[i]))
-
-        
 
         rows = ["X1", "X2", "sigmax", "vib gs"]
         
@@ -460,6 +478,7 @@ class Plots(Operations):
 
         vals, eigs = np.linalg.eigh(self.H.todense())
         oX1eig = eigs.getH() * self.oX1 * eigs
+        j_k = self.j_k
 
         fig = plt.figure(2)
         axA = fig.add_subplot(111)
@@ -468,29 +487,24 @@ class Plots(Operations):
         axA.grid()
 
         st = 0000
-        en = 13300
+        en = self.tmax_ps* 13000//4 
         itvl = 3 
 
         N= self.n_cutoff
         omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2).transpose()
         
-        n_m = [[1,3],[0,1],[0,2],[0,3]]
-        #n_m = [[2,1],[1,1],[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]]
-        #n_m = [[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]] #originals
-        #n_m = [[0,4],[0,5],[0,6],[1,2],[2,1],[2,3],[2,2],[1,1]]
+        for i in range(len(j_k)):
+            j = j_k[i][0]
+            k = j_k[i][1]
+            f = np.round(np.abs(omegaarray[j, k]), decimals=2)
+            opsi_jk = np.kron(eigs[:, j], eigs[:, k].getH())
+            psi_jk = self.oper_evol(opsi_jk,self.rhoT, self.t, self.tmax_ps)
 
-        for i in range(len(n_m)):
-            n = n_m[i][0]
-            m = n_m[i][1]
-            f = np.round(np.abs(omegaarray[n, m]), decimals=2)
-            opsi_nm = np.kron(eigs[:, n], eigs[:, m].getH())
-            psi_nm = self.oper_evol(opsi_nm,self.rhoT, self.t, self.tmax_ps)
+            plt.plot(self.t_ps[st:en], np.abs(oX1eig[j, k]) * np.abs(psi_jk[st:en]), label="$\Omega_{" +str(j)+str(k) +"} =$" + str(f)) 
 
-            plt.plot(self.t_ps[st:en], np.abs(oX1eig[n, m]) * np.abs(psi_nm[st:en]), label="$\Omega_{" +str(n)+str(m) +"} =$" + str(f)) 
-
-        plt.xlim(0,2.5)
-        plt.ylim(0,0.02)
-        plt.legend(bbox_to_anchor=([1, 1]), title="Oscillatory Frequencies / $cm^-1$", fontsize =13)
+        #plt.xlim(0,2.5)
+        # plt.ylim(0,0.05)
+        plt.legend(bbox_to_anchor=([0.5, 1]), title="Oscillatory Frequencies / $cm^-1$", fontsize =13)
 
         # sync plot
         # axB = axA.twinx()
@@ -506,8 +520,8 @@ class Plots(Operations):
         fig = plt.figure(3)
 
         st = 0000
-        en = 13300  # P_el.shape[2]
-        itvl = 3    #time interval?
+        en = self.tmax_ps* 13000//4 
+        itvl = 3  
 
         #COULD MOVE THESE INTO INIT
         oE1 = self.exciton_operator(1, 1)
@@ -528,34 +542,36 @@ class Plots(Operations):
         #axA.plot(self.t_ps[0:en], ex12[0:en], label=r'$|E_{1}\rangle\langle E_{2}|$')
         
         axC = axA.twinx()
+        axC.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
         #axC.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
         axC.plot(self.t_ps[np.arange(st, en, itvl)], self.c_X12[np.arange(st, en, itvl)], 'c-o', markevery=0.05, markersize=5,
                  label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
-
-        axB = axA.twinx()
-        #axB.set_ylabel('$|X_{i,jk}| ||\\rho_{jk}(t)||$', fontsize =13)
-
-        vals, eigs = np.linalg.eigh(self.H.todense())
-        oX1eig = eigs.getH() * self.oX1 * eigs
-
-        N= self.n_cutoff
-        omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2).transpose()
-
-        n_m = [] #coherences to plot
-
-        for i in range(len(n_m)):
-            n = n_m[i][0]
-            m = n_m[i][1]
-            f = np.round(np.abs(omegaarray[n, m]), decimals=2)
-            opsi_nm = np.kron(eigs[:, n], eigs[:, m].getH())
-            psi_nm = self.oper_evol(opsi_nm,self.rhoT, self.t, self.tmax_ps)
-
-            axB.plot(self.t_ps[st:en], np.abs(oX1eig[n, m]) * np.abs(psi_nm[st:en]), label="$\Omega_{" +str(n)+str(m) +"} =$" + str(f)) 
     
+        #plot coherences
+        #axB = axA.twinx()
+        #axB.set_ylabel('$|X_{i,jk}| ||\\rho_{jk}(t)||$', fontsize =13)        
 
+        # vals, eigs = np.linalg.eigh(self.H.todense())
+        # oX1eig = eigs.getH() * self.oX1 * eigs
+
+        # N= self.n_cutoff
+        # omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2).transpose()
+
+        # n_m = [] #coherences to plot
+
+        # for i in range(len(n_m)):
+        #     n = n_m[i][0]
+        #     m = n_m[i][1]
+        #     f = np.round(np.abs(omegaarray[n, m]), decimals=2)
+        #     opsi_nm = np.kron(eigs[:, n], eigs[:, m].getH())
+        #     psi_nm = self.oper_evol(opsi_nm,self.rhoT, self.t, self.tmax_ps)
+
+        #     axB.plot(self.t_ps[st:en], np.abs(oX1eig[n, m]) * np.abs(psi_nm[st:en]), label="$\Omega_{" +str(n)+str(m) +"} =$" + str(f)) 
+    
+        #plt.xlim(0,4)
         fig.legend(loc=(0.6,0.6), fontsize =13)
-        plt.xlabel('Time ($ps$)', fontsize =13)
-        plt.grid()
+        axA.set_xlabel('Time ($ps$)', fontsize =13)
+        axA.grid(axis='x')
         fig.show()
         if(self.save_plots == True):
             fig.savefig('ET_withsync_rateswap.png',bbox_inches='tight',dpi=600)
@@ -577,9 +593,8 @@ class Plots(Operations):
         
         coefx1chop = np.tril(coefx1,k=-1)
         coefx2chop = np.tril(coefx2,k=-1)
-        
-        tmax_ps = 4
-        tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
+     
+        tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
 
         steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
         
@@ -650,11 +665,11 @@ class Plots(Operations):
         q_discord = []
         corr_times = []
 
-        dtperps = (100 * constant.c * 2 * constant.pi * 1e-12) / self.dt
+        #dtperps = (100 * constant.c * 2 * constant.pi * 1e-12) / self.dt
         maxstep = np.shape(self.rhoT)[0] #np.int(np.round(12*dtperps))
         N= self.n_cutoff
                             #maxstep
-        for i in np.arange(0,maxstep,2000):
+        for i in np.arange(0,maxstep,3000):
 
             test_matrix = self.rhoT[i,:].reshape(np.shape(P0)[0],np.shape(P0)[1])
             quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 1, 2)
@@ -676,7 +691,7 @@ class Plots(Operations):
         #QUANTUM PLOT
         fig = plt.figure(6)
 
-        en = 13000 #np.shape(self.t_ps)[0]-10 #13000
+        en = self.tmax_ps* 13000//4 
         st = 000
 
         itvl = 5
@@ -685,7 +700,7 @@ class Plots(Operations):
         axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
         axA.plot(corr_times,q_discord,label=r'Discord')
         axA.set_xlabel('Time (ps)', fontsize =13)
-        axA.set_xlim([0,4])
+        #axA.set_xlim([0,4])
 
         axB = axA.twinx()
         axB.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
@@ -713,23 +728,40 @@ class Plots(Operations):
         print("c_X12 size  = ", np.shape(self.c_X12))
         dtperps = (100 * constant.c * 2 * constant.pi * 1e-12) / self.dt
         print("dtperps = ", dtperps)
-        print("dephrate = ",self.taudeph)
-        print("dissrate = ",self.taudiss)
+        print("dephrate = ",self.r_el)
+        print("dissrate = ",self.r_th)
 
 
 
 if __name__ == "__main__":
-  
-    # tmax_ps = 4
-    plot = Plots(hamiltonian="original", phi1 = 0.8, phi2 =0, rate_swap=True, save_plots = True)
 
+    #n_m = [[1,3],[0,1],[0,2],[0,3]]
+    #n_m = [[2,1],[1,1],[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]]
+    j_k = [[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]] #originals
+    #n_m = [[0,4],[0,5],[0,6],[1,2],[2,1],[2,3],[2,2],[1,1]]
+    #j_k = [[0,1],[0,2],[0,3],[0,4],[0,5],[0,6]]
+    #j_k = [[2,1],[1,1],[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]]
+    #j_k = [[1,3],[0,1],[0,2],[0,3]]
+
+    # j_k = []
+    # for j in range(4):
+    #     for k in range(4):
+    #         if(j!=k):
+    #             j_k.append([j,k])
+    # print(j_k)
+
+
+    #original  r_th =1, r_el = 0.1
+    # tmax_ps = 4
+    plot = Plots(hamiltonian="original", r_th =1, r_el =1.1, phi1 = np.pi/2, phi2 =0, j_k=j_k, save_plots = False, n_cutoff=5, temperature=298, tmax_ps = 6)
+    plot.test()
     plot.matrix_elements()
-    # plot.sync_evol()
+    plot.sync_evol()
     plot.coherences()
     plot.energy_transfer()
     #plot.fourier()
-    #plot.test()
-    #plot.q_correlations()
+    
+    plot.q_correlations()
     plt.show()
 
     
