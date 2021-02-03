@@ -30,7 +30,7 @@ import pandas
 
 class DimerDetune:
     """Defines properties and functions of the vibronic dimer system"""
-    def __init__(self, hamiltonian, r_th, r_el, phi1, phi2, n_cutoff, temperature):
+    def __init__(self, hamiltonian, r_th, r_el, phi1, phi2, detuning, n_cutoff, temperature, tmax_ps):
         """Initialise variables assosciated with the dimer system
         Arguments:
             self - instance of DimerDetune class
@@ -48,7 +48,7 @@ class DimerDetune:
         self.huang = 0.0578
         #initialise with no detuning
         self.omega = 1111
-        self.detuning = 1.05
+        self.detuning = detuning
         self.w1 = self.omega
         self.w2 = self.detuning * self.omega
         
@@ -116,6 +116,9 @@ class DimerDetune:
 
         self.t0 = 0
         self.dt = ((2 * constant.pi) / self.omega) / 100
+        self.tmax_ps = tmax_ps
+        tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12
+        self.steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
 
         self.phi1 = phi1
         self.phi2 = phi2
@@ -221,8 +224,8 @@ class DimerDetune:
         H = sp.kron((self.dE / 2) * sigmaz, sp.kron(Iv, Iv)) \
             + sp.kron(Ie, sp.kron(self.w1 * b.getH() * b, Iv)) \
             + sp.kron(Ie, sp.kron(Iv, self.w2 * b.getH() * b)) \
-            + self.g1 * sp.kron(eldis1, sp.kron(cmath.exp(-1j*self.phi1)*b + cmath.exp(1j*self.phi1)*b.getH(), Iv)) \
-            + self.g2 * sp.kron(eldis2, sp.kron(Iv, cmath.exp(-1j*self.phi2) * b + cmath.exp(1j*self.phi2)*b.getH()))    
+            + self.g1 * sp.kron(eldis1, sp.kron(cmath.exp(1j*self.phi1)*b + cmath.exp(-1j*self.phi1)*b.getH(), Iv)) \
+            + self.g2 * sp.kron(eldis2, sp.kron(Iv, cmath.exp(1j*self.phi2) * b + cmath.exp(-1j*self.phi2)*b.getH()))    
 
             
         # else:
@@ -302,8 +305,8 @@ class Operations(DimerDetune):
 
     def time_evol_me(self, tmax_ps):
         count1 = time.time()
-        tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12
-        steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
+        # tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12
+        # steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
 
         # initial state
         rho0 = self.init_state()
@@ -318,14 +321,14 @@ class Operations(DimerDetune):
 
         evo = integrate.complex_ode(f)
         evo.set_initial_value(rho0_l, self.t0)  # initial conditions
-        t = np.zeros(steps)
+        t = np.zeros(self.steps)
 
         t[0] = self.t0
-        rhoT = np.zeros((steps, rho0.shape[1] ** 2), dtype=complex)  # time is 3rd dim.
+        rhoT = np.zeros((self.steps, rho0.shape[1] ** 2), dtype=complex)  # time is 3rd dim.
         rhoT[0, :] = rho0_l
         # now do the iteration.
         k = 1
-        while evo.successful() and k < steps:
+        while evo.successful() and k < self.steps:
             evo.integrate(evo.t + self.dt)  # time to integrate at at each loop
             t[k] = evo.t  # save current loop time
             rhoT[k, :] = evo.y  # save current loop data
@@ -337,10 +340,10 @@ class Operations(DimerDetune):
 
     def oper_evol(self, operator, rhoT, t, tmax_ps):
         """calculates the time evolution of an operator"""
-        steps = len(rhoT[:, 0])
+        #steps = len(rhoT[:, 0])
         N = int(np.sqrt(len(rhoT[0, :])))
-        oper = np.zeros(steps, dtype=complex)
-        for i in np.arange(steps):
+        oper = np.zeros(self.steps, dtype=complex)
+        for i in np.arange(self.steps):
             #may need a complex verison with np.real here?
             oper[i] = np.trace(operator.dot(rhoT[i, :].reshape(N, N)))
         return oper
@@ -372,8 +375,8 @@ class Operations(DimerDetune):
 
 class Plots(Operations):
 
-    def __init__(self, hamiltonian, r_th, r_el, phi1, phi2, j_k, save_plots, n_cutoff, temperature, tmax_ps):
-        DimerDetune.__init__(self, hamiltonian, r_th, r_el, phi1, phi2,  n_cutoff, temperature)
+    def __init__(self, hamiltonian, r_th, r_el, phi1, phi2, detuning, j_k, save_plots, n_cutoff, temperature, tmax_ps):
+        DimerDetune.__init__(self, hamiltonian, r_th, r_el, phi1, phi2, detuning,  n_cutoff, temperature, tmax_ps)
         if(hamiltonian == "militello"):
             self.H = self.militello_hamiltonian()
         else:
@@ -407,7 +410,7 @@ class Plots(Operations):
     def sync_evol(self):
 
         fig = plt.figure(1)
-        en = self.tmax_ps* 13000//4 
+        en = self.steps -200
         st = 0000
         itvl = 5
 
@@ -428,7 +431,7 @@ class Plots(Operations):
         fig.show()
 
         if(self.save_plots == True):
-            fig.savefig('sync_evol_original.png',bbox_inches='tight',dpi=600)
+            fig.savefig('sync_evol_original__phi1_pi.png',bbox_inches='tight',dpi=600)
 
 
     def matrix_elements(self):
@@ -487,7 +490,7 @@ class Plots(Operations):
         axA.grid()
 
         st = 0000
-        en = self.tmax_ps* 13000//4 
+        en = self.steps -200
         itvl = 3 
 
         N= self.n_cutoff
@@ -513,14 +516,14 @@ class Plots(Operations):
         #          label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
 
         if(self.save_plots == True):
-            fig.savefig('Eigcoherences_original_rateswap_sample.png',bbox_inches='tight',dpi=600)
+            fig.savefig('Eigcoherences_original__phi1_pi.png',bbox_inches='tight',dpi=600)
         fig.show()
 
     def energy_transfer(self):
         fig = plt.figure(3)
 
         st = 0000
-        en = self.tmax_ps* 13000//4 
+        en = self.steps -200
         itvl = 3  
 
         #COULD MOVE THESE INTO INIT
@@ -574,7 +577,7 @@ class Plots(Operations):
         axA.grid(axis='x')
         fig.show()
         if(self.save_plots == True):
-            fig.savefig('ET_withsync_rateswap.png',bbox_inches='tight',dpi=600)
+            fig.savefig('ET_withsync_original__phi1_pi.png',bbox_inches='tight',dpi=600)
 
     def fourier(self):
         vals, eigs = np.linalg.eigh(self.H.todense())
@@ -595,8 +598,6 @@ class Plots(Operations):
         coefx2chop = np.tril(coefx2,k=-1)
      
         tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  # 3 end time
-
-        steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
         
         N= self.n_cutoff
         omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(
@@ -669,7 +670,7 @@ class Plots(Operations):
         maxstep = np.shape(self.rhoT)[0] #np.int(np.round(12*dtperps))
         N= self.n_cutoff
                             #maxstep
-        for i in np.arange(0,maxstep,3000):
+        for i in np.arange(0,maxstep,2000):
 
             test_matrix = self.rhoT[i,:].reshape(np.shape(P0)[0],np.shape(P0)[1])
             quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 1, 2)
@@ -691,7 +692,7 @@ class Plots(Operations):
         #QUANTUM PLOT
         fig = plt.figure(6)
 
-        en = self.tmax_ps* 13000//4 
+        en = self.steps -200
         st = 000
 
         itvl = 5
@@ -714,7 +715,7 @@ class Plots(Operations):
         axA.legend(bbox_to_anchor=([0.9,0.8]), fontsize =13)
         fig.show()
         if(self.save_plots == True):
-            fig.savefig('Q_Correlations_original_rateswap.png',bbox_inches='tight',dpi=600)
+            fig.savefig('Q_Correlations_original_phi1_pi.png',bbox_inches='tight',dpi=600)
 
     def test(self):
         print("oX1= ", np.shape(self.oX1.toarray()))
@@ -735,14 +736,15 @@ class Plots(Operations):
 
 if __name__ == "__main__":
 
-    #n_m = [[1,3],[0,1],[0,2],[0,3]]
-    #n_m = [[2,1],[1,1],[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]]
+    #j_k = [[1,3],[0,1],[0,2],[0,3]]
+    #j_k = [[2,1],[1,1],[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]]
     j_k = [[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]] #originals
-    #n_m = [[0,4],[0,5],[0,6],[1,2],[2,1],[2,3],[2,2],[1,1]]
+    #j_k = [[0,4],[0,5],[0,6],[1,2],[2,1],[2,3],[2,2],[1,1]]
     #j_k = [[0,1],[0,2],[0,3],[0,4],[0,5],[0,6]]
     #j_k = [[2,1],[1,1],[0,1],[0,2],[0,3],[1,4],[1,5],[3,7],[3,8],[1,3]]
     #j_k = [[1,3],[0,1],[0,2],[0,3]]
 
+    #all in range
     # j_k = []
     # for j in range(4):
     #     for k in range(4):
@@ -752,8 +754,7 @@ if __name__ == "__main__":
 
 
     #original  r_th =1, r_el = 0.1
-    # tmax_ps = 4
-    plot = Plots(hamiltonian="original", r_th =1, r_el =1.1, phi1 = np.pi/2, phi2 =0, j_k=j_k, save_plots = False, n_cutoff=5, temperature=298, tmax_ps = 6)
+    plot = Plots(hamiltonian="original", r_th =0.1, r_el =1, phi1 = np.pi, phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 4)
     plot.test()
     plot.matrix_elements()
     plot.sync_evol()
