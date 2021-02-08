@@ -1,5 +1,5 @@
 # QSync
 
-Dimer_Model_Detune_1.py is the full code
+Dimer_Model_Detune_1.py is the original code authored by Stefan Siwiak-Jaszek
 
-DimerDetuneNew.py is a version that I (Charlie) have re-written - it is not complete, but may be easier to follow for the parts that are done. test commit2
+DimerDetuneNew.py is a re-written and adapted script allowing for easy manipulation of parameters and plotting of system attributes. Authored by Charlie Nation and Pip Benjamin.
