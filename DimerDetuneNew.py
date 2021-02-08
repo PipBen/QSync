@@ -2,7 +2,7 @@
 """
 Code for two coupled dimer chromophores, strongly coupled to modes.
 Tensor order is excitonic, mode 1, mode 2.
-@author: Charlie Nation
+@author: Charlie Nation, Pip Benjamin
 based on code by stefan siwiak-jaszek
 
 ___________________________________________________________________________________________________________________
@@ -11,10 +11,6 @@ To do:
 
 Replace np.matrix (depreciated) with np.array throughout - this doesn't have a getH method, so will need
 .conj().transpose() I think
-
-Define regulary used arrays inside init
-
-rhoT needs to be parsed into each plot to avoid repeated calculations
 """
 import numpy as np
 import scipy.constants as constant
@@ -73,35 +69,10 @@ class DimerDetune:
         
         #decoherence properties
         self.kBT = (constant.k * temperature) / (constant.h * constant.c * 100)  # cm-1
-        #rates.. where do these numbers come from?
-
-        # if rate_swap ==True:
-        #     #bigger is smaller 
-        #     self.thermal_dissipation = 40.564  # 70
-        #     self.electronic_dephasing = 66.3564
-        #     #self.thermal_dissipation = 333.564
-        #     #self.electronic_dephasing = 33.3564
-        # else:
-        #     #1
-        # self.thermal_dissipation = 33.3564  # 70
-        #     #0.1
-        # self.electronic_dephasing = 333.564
-
+        
         #NEW- input in [ps]^-1
         self.r_th = 1/(r_th* 1e-12 * 100 * constant.c * 2*constant.pi )
         self.r_el = 1/(r_el*1e-12 * 100 * constant.c * 2*constant.pi )
-
-
-        # #  th=1 , deph=0.1ps rates - not used
-        # self.taudiss = 1 / (1e-12 * self.thermal_dissipation * 100 * constant.c)
-        # self.taudeph = 1 / (1e-12 * self.electronic_dephasing * 100 * constant.c)
-
-        
-        #  # %% scaling effects from setting 2pi x c = 1 and hbar = 1
-        # self.r_th = self.thermal_dissipation / (2 * constant.pi)
-        # self.r_el = self.electronic_dephasing / (2 * constant.pi)
-        # # self.r_el = 0
-        # # self.r_th = 0
 
         self.r_v1 = self.r_th  # 6 # cm-1
         self.r_v2 = self.r_th  # 6 # cm-1
@@ -431,7 +402,7 @@ class Plots(Operations):
         fig.show()
 
         if(self.save_plots == True):
-            fig.savefig('sync_evol_original__phi1_pi.png',bbox_inches='tight',dpi=600)
+            fig.savefig('sync_evol.png',bbox_inches='tight',dpi=600)
 
 
     def matrix_elements(self):
@@ -516,7 +487,7 @@ class Plots(Operations):
         #          label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
 
         if(self.save_plots == True):
-            fig.savefig('Eigcoherences_original__phi1_pi.png',bbox_inches='tight',dpi=600)
+            fig.savefig('Eigcoherences.png',bbox_inches='tight',dpi=600)
         fig.show()
 
     def energy_transfer(self):
@@ -577,7 +548,7 @@ class Plots(Operations):
         axA.grid(axis='x')
         fig.show()
         if(self.save_plots == True):
-            fig.savefig('ET_withsync_original__phi1_pi.png',bbox_inches='tight',dpi=600)
+            fig.savefig('ET_withsync.png',bbox_inches='tight',dpi=600)
 
     def fourier(self):
         vals, eigs = np.linalg.eigh(self.H.todense())
@@ -715,7 +686,7 @@ class Plots(Operations):
         axA.legend(bbox_to_anchor=([0.9,0.8]), fontsize =13)
         fig.show()
         if(self.save_plots == True):
-            fig.savefig('Q_Correlations_original_phi1_pi.png',bbox_inches='tight',dpi=600)
+            fig.savefig('Q_Correlations.png',bbox_inches='tight',dpi=600)
 
     def test(self):
         print("oX1= ", np.shape(self.oX1.toarray()))
@@ -754,7 +725,7 @@ if __name__ == "__main__":
 
 
     #original  r_th =1, r_el = 0.1
-    plot = Plots(hamiltonian="original", r_th =0.1, r_el =1, phi1 = np.pi, phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 4)
+    plot = Plots(hamiltonian="original", r_th =0.2, r_el =0.9, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=8, temperature=298, tmax_ps = 4)
     plot.test()
     plot.matrix_elements()
     plot.sync_evol()
