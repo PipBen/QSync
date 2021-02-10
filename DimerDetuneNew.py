@@ -724,16 +724,16 @@ if __name__ == "__main__":
     # print(j_k)
 
 
-    #original  r_th =1, r_el = 0.1
-    plot = Plots(hamiltonian="original", r_th =0.2, r_el =0.9, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=8, temperature=298, tmax_ps = 4)
+    #original  r_th =[1ps]^-1, r_el = [0.1ps]^-1
+    plot = Plots(hamiltonian="original", r_th =0.1, r_el =1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 30)
     plot.test()
     plot.matrix_elements()
     plot.sync_evol()
     plot.coherences()
     plot.energy_transfer()
-    #plot.fourier()
+    # #plot.fourier()
     
-    plot.q_correlations()
+    # plot.q_correlations()
     plt.show()
 
     
