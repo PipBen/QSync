@@ -725,7 +725,7 @@ if __name__ == "__main__":
 
 
     #original  r_th =[1ps]^-1, r_el = [0.1ps]^-1
-    plot = Plots(hamiltonian="original", r_th =0.1, r_el =1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 30)
+    plot = Plots(hamiltonian="original", r_th =0.15, r_el =0.95, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 4)
     plot.test()
     plot.matrix_elements()
     plot.sync_evol()
