@@ -89,8 +89,8 @@ class DimerDetune:
         self.t0 = 0
         self.dt = ((2 * constant.pi) / self.omega) / 100
         self.tmax_ps = tmax_ps
-        tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12
-        self.steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
+        self.tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12
+        self.steps = np.int((self.tmax - self.t0) / self.dt)  # total number of steps. Must be int.
 
         self.phi1 = phi1
         self.phi2 = phi2
@@ -277,9 +277,7 @@ class Operations(DimerDetune):
 
     def time_evol_me(self, tmax_ps):
         count1 = time.time()
-        # tmax = tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12
-        # steps = np.int((tmax - self.t0) / self.dt)  # total number of steps. Must be int.
-
+     
         # initial state
         rho0 = self.init_state()
         rho0_l = rho0.reshape(1, (rho0.shape[1]) ** 2)  # initial state in Liouville space
@@ -345,6 +343,50 @@ class Operations(DimerDetune):
     def matrix_element(self,bra, operator, ket):
         return np.real(bra.getH() * operator * ket)
 
+    #FOURIER TRANSFORM FUNCTIONS
+    def padding(self, y_t, t, padding_multiplier):
+        """pads oscillating function with zeros and extends time axis
+            y_t - Oscillating Function
+            t- time array
+            padding multiplier (int)- pad the signal by a multiple of its length"""
+        dt = t[1] - t[0]
+        y_t_len = len(y_t)
+
+        pad_value = y_t[y_t_len-1]
+        # pad_value =0
+
+        pad_size = padding_multiplier * y_t_len
+        padded_y = pad_value * np.ones(pad_size)
+        padded_t = np.zeros(pad_size)
+
+        for i in range(y_t_len):
+            padded_y[i] = y_t[i]
+        
+        for j in range(pad_size):
+            padded_t[j] = j*dt
+
+        return padded_y, padded_t
+
+    def fft_time_to_freq(self,time):
+        """Convert array of time values to frequencies"""
+        dt = time[1] - time[0]
+        N = time.shape[0]
+        freq = 2.*np.pi*np.fft.fftfreq(N, dt)  #
+        return np.append(freq[N//2:], freq[:N//2])
+
+    def fft(self,y_t, t, return_frequencies=False):
+        """return Fourier transform of an oscillating function"""
+        n_times = len(t)
+        ft = t[-1] * np.fft.fft(y_t, n_times)
+        ft = np.append(ft[n_times // 2:], ft[:n_times // 2])
+        if return_frequencies ==True:
+            frequencies = self.fft_time_to_freq(t)
+            return frequencies, ft
+        else:
+            return ft
+
+    
+
 class Plots(Operations):
 
     def __init__(self, hamiltonian, r_th, r_el, phi1, phi2, detuning, j_k, save_plots, n_cutoff, temperature, tmax_ps):
@@ -371,8 +413,8 @@ class Plots(Operations):
         self.x2 = self.oper_evol(self.oX2,self.rhoT, self.t, self.tmax_ps)  # can also pass a time step if necessary
 
         self.t_cm = self.t / (2 * constant.pi)
-        tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12
-        self.tmax_cm = tmax / (2 * constant.pi)
+
+        self.tmax_cm = self.tmax / (2 * constant.pi)
         self.t_ps = (self.t_cm * 1e12) / (100 * constant.c)
 
         self.elta = np.int(np.round(((2 * constant.pi) / self.omega) / self.dt))
@@ -453,7 +495,7 @@ class Plots(Operations):
         of their corresponding position matrix element in the open quantum system evolution."""
 
         vals, eigs = np.linalg.eigh(self.H.todense())
-        oX1eig = eigs.getH() * self.oX1 * eigs
+        #oX1eig = eigs.getH() * self.oX1 * eigs
         j_k = self.j_k
 
         fig = plt.figure(2)
@@ -483,24 +525,60 @@ class Plots(Operations):
             
             #+ve sync
             if (oX1_kj[i] * oX2_kj[i] > 0):
-                plt.plot(self.t_ps[st:en], np.abs(oX1eig[j, k]) * np.abs(psi_jk[st:en]), ls='-', label="$\Omega_{" +str(j)+str(k) +"} =$" + str(f)) 
+                plt.plot(self.t_ps[st:en], np.abs(oX1_kj[i]) * np.abs(psi_jk[st:en]), ls='-', label="$\Omega_{" +str(j)+str(k) +"} =$" + str(f)) 
 
             else:
-                plt.plot(self.t_ps[st:en], np.abs(oX1eig[j, k]) * np.abs(psi_jk[st:en]), ls='--', label="$\Omega_{" +str(j)+str(k) +"} =$" + str(f)) 
+                plt.plot(self.t_ps[st:en], np.abs(oX1_kj[i]) * np.abs(psi_jk[st:en]), ls='--', label="$\Omega_{" +str(j)+str(k) +"} =$" + str(f)) 
 
-        plt.xlim(0,2.5)
-        plt.ylim(0,0.05)
+        # plt.xlim(0,2.5)
+        # plt.ylim(0,0.05)
         plt.legend(bbox_to_anchor=([0.5, 1]), title="Oscillatory Frequencies / $cm^-1$", fontsize =13)
 
-        # sync plot
-        # axB = axA.twinx()
-        # axB.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
-        # axB.plot(self.t_ps[np.arange(st, en, itvl)], self.c_X12[np.arange(st, en, itvl)], 'c-o', markevery=0.05, markersize=5,
-        #          label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+        if(self.save_plots == True):
+            fig.savefig('Eigcoherences_ZOOM.png',bbox_inches='tight',dpi=600)
+        fig.show()
+
+    def coherences_sigmax_scaling(self):
+        """Complex magnitude of exciton-vibration coherences scaled by the absolute value
+        of their corresponding position matrix element in the open quantum system evolution."""
+
+        vals, eigs = np.linalg.eigh(self.H.todense())
+        oe12 = self.exciton_operator(1,2)       
+        oe21 = self.exciton_operator(2,1)
+        sigmax = oe21 + oe12
+        j_k = self.j_k
+
+        fig = plt.figure(19)
+        axA = fig.add_subplot(111)
+        axA.set_xlabel('Time ($ps$)', fontsize =13)
+        axA.set_ylabel('$|\sigma_x,jk| ||\\rho_{jk}(t)||$', fontsize =13)
+        axA.grid()
+
+        st = 0000
+        en = self.steps -200
+
+        N= self.n_cutoff
+        omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2).transpose()
+        osigmax_kj = np.zeros(len(j_k))
+       
+
+        for i in range(len(j_k)):
+            j = j_k[i][0]
+            k = j_k[i][1]
+            osigmax_kj[i] = self.matrix_element(eigs[:, k], sp.kron(sigmax, sp.kron(self.Iv, self.Iv)), eigs[:, j])
+            # oX2_kj[i] = self.matrix_element(eigs[:, k], self.oX2, eigs[:, j])
+
+            f = np.round(np.abs(omegaarray[j, k]), decimals=2)
+            opsi_jk = np.kron(eigs[:, j], eigs[:, k].getH())
+            psi_jk = self.oper_evol(opsi_jk,self.rhoT, self.t, self.tmax_ps)
+            plt.plot(self.t_ps[st:en],np.abs(osigmax_kj[i]) * np.abs(psi_jk[st:en]), label="$\Omega_{" +str(j)+str(k) +"} =$" + str(f)) 
+            
+        plt.legend(bbox_to_anchor=([0.5, 1]), title="Oscillatory Frequencies / $cm^-1$", fontsize =13)
 
         if(self.save_plots == True):
-            fig.savefig('Eigcoherences.png',bbox_inches='tight',dpi=600)
+            fig.savefig('Coherences_sigmax.png',bbox_inches='tight',dpi=600)
         fig.show()
+
 
     def energy_transfer(self):
         fig = plt.figure(3)
@@ -561,145 +639,7 @@ class Plots(Operations):
         fig.show()
         if(self.save_plots == True):
             fig.savefig('ET_withsync.png',bbox_inches='tight',dpi=600)
-
-        # #FIGURE OUT FT UNITS
-        # FTfig = plt.figure(13)
-        # yf = fft(ex1[0:en])
-        # xf = fftfreq(self.tmax_cm, 1)
-
-        # plt.plot(xf, np.abs(yf))
-        
-        # FTax = FTfig.add_subplot(111)
-        # FTax.plot(xf,yf)
-        # FTfig.show()
-
-    def fourier_ET(self):
-        vals, eigs = np.linalg.eigh(self.H.todense())
-
-        rho0 = self.init_state()
-        rho0eig = eigs.getH() * rho0 * eigs
-
-        oE1 = self.exciton_operator(1, 1)
-        oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
-        Ex1 = self.oper_evol(oE1mImI,self.rhoT, self.t, self.tmax_ps)
-
-        oEx1eig = eigs.getH() * oE1mImI * eigs
-        coefEx1 = np.multiply(oEx1eig, rho0eig)
-        coefEx1chop = np.tril(coefEx1,k=-1)
-        
-        N= self.n_cutoff
-        omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(
-        2 * N ** 2, 2 * N ** 2).transpose()
-        omegachop = np.tril(omegaarray,k=-1)
-
-        count4 = time.time()
-
-        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
-        freqres1 = 0.5
-        ftlen = (self.t_cm[1]-self.t_cm[0])*np.arange(int(sampleratecm/freqres1))
-
-        anaEx1array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
-        anaEx1 = np.zeros(np.size(ftlen))
-
-        for a in np.arange(np.size(ftlen)):
-            anaEx1array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefEx1chop)
-            anaEx1[a] = np.sum(anaEx1array[:,:,a]) + np.trace(coefEx1)
- 
-        freqres2 = 0.1
-        pads = int((sampleratecm/freqres2)-np.shape(anaEx1)[0]) #30000
-        Ex1pad = np.append(anaEx1,np.zeros(pads))
-     
-        fr10 = np.fft.rfft(Ex1pad,int(np.size(Ex1pad)))
-   
-        freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(Ex1pad),1/np.size(Ex1pad))
-
-        count5 = time.time()
-        print('Measurements =',count5-count4)
-
-        en = self.steps -200
-
-        fig = plt.figure(7)
-        print("fourier y axis = ", np.real(fr10)[0:en])
-        plt.plot(freq_cm0[0:en],np.real(fr10)[0:en],label=r'$\langle X_1\rangle$')
     
-        plt.ylabel('Real Part of FT', fontsize =13)
-        #plt.yticks()
-        plt.xlabel('Frequency ($cm^{-1}$)', fontsize =13)
-        #plt.xlim(0,150)
-        plt.legend()
-        plt.grid(True,which='both', axis='x')
-        plt.minorticks_on()
-        #plt.yticks([0])
-        plt.title(r'Components of $|E_1\rangle\langle E_1 |$', fontsize =13)
-        fig.show()
-        if(self.save_plots == True):
-            fig.savefig('ET_FT_original.png',bbox_inches='tight',dpi=600)
-
-    def ET_FT2(self):
-        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
-        oE1 = self.exciton_operator(1, 1)
-        oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
-        Ex1 = self.oper_evol(oE1mImI,self.rhoT, self.t, self.tmax_ps)
-
-        freqres = 0.5
-        pads = int((sampleratecm/freqres)-np.shape(Ex1)[0]) #30000
-        Ex1pad = np.append(Ex1,np.zeros(pads))
-        FT = np.fft.rfft(Ex1pad,int(np.size(Ex1pad)))
-
-        freq_cm = sampleratecm*np.arange(0,1-1/np.size(Ex1pad),1/np.size(Ex1pad))
-
-        st = int(0/(sampleratecm/np.size(Ex1pad)))
-        en = int(1200/(sampleratecm/np.size(Ex1pad)))
-
-        fig = plt.figure(15)
-        # plt.plot(freq_cm[st:en],(np.abs(FT1)**2)[st:en],label='<$X_1$>')
-        # plt.plot(freq_cm[st:en],(np.abs(FT2)**2)[st:en],label='<$X_2$>')
-        plt.plot(freq_cm[st:en],np.real(FT)[st:en],label='<$X_1$>')
-        plt.plot(freq_cm[st:en],np.real(FT)[st:en],label='<$X_2$>')
-        plt.ylabel('Real Part of FT', fontsize =13)
-        plt.xlabel('Frequency ($cm^{-1}$)', fontsize =13)
-        plt.legend()
-        plt.grid()
-        fig.show()
-        if(self.save_plots == True):
-            fig.savefig('ET_FT.png',bbox_inches='tight',dpi=600)
-        
-    def Full_sync_FT(self):
-        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
-
-        X1 = self.oper_evol(self.oX1, self.rhoT, self.t, self.tmax_ps)
-        X2 = self.oper_evol(self.oX2, self.rhoT, self.t, self.tmax_ps)
-
-        X1 = X1[6000:7000]
-        X2 =X2[6000:7000]
-
-        freqres = 0.5
-        pads = int((sampleratecm/freqres)-np.shape(X1)[0]) #30000
-        x1pad = np.append(X1,np.zeros(pads))
-        x2pad = np.append(X2,np.zeros(pads))
-
-        FT1 = np.fft.rfft(x1pad,int(np.size(x1pad)))
-        FT2 = np.fft.rfft(x2pad,int(np.size(x2pad)))
-
-        freq_cm = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
-
-        st = int(0/(sampleratecm/np.size(x1pad)))
-        en = int(6000/(sampleratecm/np.size(x1pad)))
-        
-
-        fig = plt.figure(13)
-        # plt.plot(freq_cm[st:en],(np.abs(FT1)**2)[st:en],label='<$X_1$>')
-        # plt.plot(freq_cm[st:en],(np.abs(FT2)**2)[st:en],label='<$X_2$>')
-        plt.plot(freq_cm[st:en],np.real(FT1)[st:en],label='<$X_1$>')
-        plt.plot(freq_cm[st:en],np.real(FT2)[st:en],label='<$X_2$>')
-        plt.ylabel('Real Part of FT', fontsize =13)
-        plt.xlabel('Frequency ($cm^{-1}$)', fontsize =13)
-        plt.legend()
-        plt.grid()
-        fig.show()
-        if(self.save_plots == True):
-            fig.savefig('Full_sync_FT.png',bbox_inches='tight',dpi=600)
-
     def fourier(self):
         vals, eigs = np.linalg.eigh(self.H.todense())
 
@@ -770,6 +710,177 @@ class Plots(Operations):
         if(self.save_plots == True):
             fig.savefig('FT_original.png',bbox_inches='tight',dpi=600)
 
+
+    def ET_FT_Charlie(self):
+        oE1 = self.exciton_operator(1, 1)
+        oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
+        ex1 = self.oper_evol(oE1mImI,self.rhoT, self.t, self.tmax_ps)
+
+
+        ex1_pad, t_pad = self.padding(ex1, self.t,3)
+
+
+        freqs, ft = self.fft(ex1_pad, t_pad, True)
+        fig = plt.figure(20)
+       
+        plt.plot(freqs, np.abs(ft)**2)
+
+        if(self.save_plots == True):
+            fig.savefig('ET_FT_Zoom_25ps.png',bbox_inches='tight',dpi=600)
+
+
+
+    def ET_FT_New(self):
+        oE1 = self.exciton_operator(1, 1)
+        oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
+        Ex1 = self.oper_evol(oE1mImI,self.rhoT, self.t, self.tmax_ps)
+
+
+        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
+        freqres1 = 0.5
+        ftlen = (self.t_cm[1]-self.t_cm[0])*np.arange(int(sampleratecm/freqres1))
+
+        freqres2 = 0.1
+        pads = int((sampleratecm/freqres2)-np.shape(Ex1)[0]) #30000
+
+        Ex1pad = np.append(Ex1,np.zeros(pads))
+     
+        fr10 = np.fft.rfft(Ex1pad,int(np.size(Ex1pad)))
+   
+        freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(Ex1pad),1/np.size(Ex1pad))
+
+        en = self.steps -200
+
+        fig = plt.figure()
+        plt.plot(freq_cm0[0:en],(np.abs(fr10)**2)[0:en],label=r'$\langle X_1\rangle$')
+    
+        plt.ylabel('Real Part of FT', fontsize =13)
+        #plt.yticks()
+        plt.xlabel('Frequency ($cm^{-1}$)', fontsize =13)
+        #plt.xlim(0,150)
+        plt.legend()
+        plt.grid(True,which='both', axis='x')
+        plt.minorticks_on()
+        #plt.yticks([0])
+        plt.title(r'Components of $|E_1\rangle\langle E_1 |$', fontsize =13)
+        fig.show()
+        if(self.save_plots == True):
+            fig.savefig('ET_FT_original.png',bbox_inches='tight',dpi=600)
+
+
+        
+
+    def X_FT(self):
+
+        X1 = self.oper_evol(self.oX1, self.rhoT, self.t, self.tmax_ps)
+        X2 = self.oper_evol(self.oX2, self.rhoT, self.t, self.tmax_ps)
+
+        # X1 = X1[6000:7000]
+        # X2 = X2[6000:7000]
+
+        X1_pad, t_pad1 = self.padding(X1, self.t_cm,1)
+        X2_pad, t_pad2 = self.padding(X2, self.t_cm,1)
+
+        figtest = plt.figure(100)
+        plt.plot(t_pad1,X1_pad)
+        figtest.show()
+
+        freqs1, ft1 = self.fft(X1_pad, t_pad1, True)
+        freqs2, ft2 = self.fft(X2_pad, t_pad2, True)
+
+        fig = plt.figure(21)
+
+        plt.plot(freqs1, np.abs(ft1)**2)
+        plt.plot(freqs2, np.abs(ft2)**2)
+        # plt.xlim(1100,1300)
+
+        if(self.save_plots == True):
+            fig.savefig('X_FT_Zoom_25ps.png',bbox_inches='tight',dpi=600)
+
+    
+    def fourier_ET(self):
+        vals, eigs = np.linalg.eigh(self.H.todense())
+        print("vals shape =", np.shape(vals))
+
+
+        rho0 = self.init_state()
+        rho0eig = eigs.getH() * rho0 * eigs
+
+        oE1 = self.exciton_operator(1, 1)
+        oE2 = self.exciton_operator(2, 2)
+        oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
+        oE2mImI = sp.kron(oE2, sp.kron(self.Iv, self.Iv)).tocsr()
+        # ex2 = self.oper_evol(oE2mImI,self.rhoT, self.t, self.tmax_ps)
+        #Ex1 = self.oper_evol(oE1mImI,self.rhoT, self.t, self.tmax_ps)
+
+        oEx1eig = eigs.getH() * oE1mImI * eigs
+        oEx2eig = eigs.getH() * oE2mImI * eigs
+        coefEx1 = np.multiply(oEx1eig, rho0eig)
+        coefEx2 = np.multiply(oEx2eig, rho0eig)
+    
+        coefEx1chop = np.tril(coefEx1,k=-1)
+        coefEx2chop = np.tril(coefEx2,k=-1)
+
+        N= self.n_cutoff
+        print("N = ", N)
+        omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(
+        2 * N ** 2, 2 * N ** 2).transpose()
+        omegachop = np.tril(omegaarray,k=-1)
+
+        count4 = time.time()
+
+        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
+        freqres1 = 0.5
+        ftlen = (self.t_cm[1]-self.t_cm[0])*np.arange(int(sampleratecm/freqres1))
+
+        anaEx1array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
+        anaEx2array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
+
+        anaEx1 = np.zeros(np.size(ftlen))
+        anaEx2 = np.zeros(np.size(ftlen))
+
+
+        for a in np.arange(np.size(ftlen)):
+            anaEx1array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefEx1chop)
+            anaEx2array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefEx2chop)
+
+            anaEx1[a] = np.sum(anaEx1array[:,:,a]) + np.trace(coefEx1)
+            anaEx2[a] = np.sum(anaEx1array[:,:,a]) + np.trace(coefEx1)
+
+        freqres2 = 0.1
+        pads = int((sampleratecm/freqres2)-np.shape(anaEx1)[0]) #30000
+
+
+        Ex1pad = np.append(anaEx1,np.zeros(pads))
+        Ex2pad = np.append(anaEx2,np.zeros(pads))
+
+     
+        fr10 = np.fft.rfft(Ex1pad,int(np.size(Ex1pad)))
+        fr20 = np.fft.rfft(Ex2pad,int(np.size(Ex2pad)))
+
+        freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(Ex1pad),1/np.size(Ex1pad))
+
+        count5 = time.time()
+        print('Measurements =',count5-count4)
+
+        en = self.steps -200
+
+        fig = plt.figure(7)
+        plt.plot(freq_cm0[0:en],(np.abs(fr10))[0:en],label=r'$\langle X_1\rangle$')
+        plt.plot(freq_cm0[0:en],(np.abs(fr20))[0:en],label=r'$\langle X_1\rangle$')
+
+    
+        plt.ylabel('Real Part of FT', fontsize =13)
+        plt.xlabel('Frequency ($cm^{-1}$)', fontsize =13)
+        plt.xlim(0,150)
+        plt.legend()
+        plt.grid(True,which='both', axis='x')
+        plt.minorticks_on()
+        #plt.yticks([0])
+        plt.title(r'Components of $|E_1\rangle\langle E_1 |$', fontsize =13)
+        fig.show()
+        if(self.save_plots == True):
+            fig.savefig('ET_FT_original.png',bbox_inches='tight',dpi=600)
 
     def q_correlations(self):
 
@@ -880,16 +991,20 @@ if __name__ == "__main__":
 
 
     #original  r_th =[1ps]^-1, r_el = [0.1ps]^-1
-    plot = Plots(hamiltonian="original", r_th =0.5, r_el =0.5, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = False, n_cutoff=5, temperature=298, tmax_ps = 4)
-    plot.test()
-    # plot.matrix_elements()
-    #plot.sync_evol()
-    # plot.coherences()
-    # plot.energy_transfer()
-    plot.Full_sync_FT()
-    plot.ET_FT2()
-    plot.fourier_ET()
-    plot.fourier()
+    plot = Plots(hamiltonian="original", r_th =0.7, r_el =0.1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 4)
+    #plot.test()
+    plot.matrix_elements()
+    plot.sync_evol()
+    plot.coherences()
+    plot.coherences_sigmax_scaling()
+    plot.energy_transfer()
+
+    # plot.ET_FT_Charlie()
+    # #plot.X_FT()
+    # #plot.Full_sync_FT()
+    # #plot.ET_FT2()
+    #plot.fourier_ET()
+    # plot.fourier()
     
     # plot.q_correlations()
     plt.show()

@@ -125,9 +125,12 @@ N = 5  # 7
 
 # %% scaling effects from setting 2pi x c = 1 and hbar = 1
 
-r_el = electronic_dephasing / (2 * constant.pi)
+r_th = 1/(0.1* 1e-12 * 100 * constant.c * 2*constant.pi )
+r_el = 1/(0.2*1e-12 * 100 * constant.c * 2*constant.pi )
 
-r_th = thermal_dissipation / (2 * constant.pi)
+# r_el = electronic_dephasing / (2 * constant.pi)
+
+# r_th = thermal_dissipation / (2 * constant.pi)
 
 r_v1 = r_th  # 6 # cm-1
 
@@ -991,63 +994,63 @@ itvl = 5
 # %% Quantum Correlations
 
 
-counta = time.time()
+# counta = time.time()
 
-q_mutual = []
-c_info = []
-q_discord = []
-corr_times = []
+# q_mutual = []
+# c_info = []
+# q_discord = []
+# corr_times = []
 
-maxstep = np.int(np.round(8*dtperps))
-                    #maxstep
-for i in np.arange(0,maxstep,2000):
+# maxstep = np.int(np.round(8*dtperps))
+#                     #maxstep
+# for i in np.arange(0,maxstep,2000):
 
-   test_matrix = rhoT[i,:].reshape(np.shape(P0)[0],np.shape(P0)[1])
-   quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 1, 2)
-   q_mutual.append(quantum_mutual_info)
-   c_info.append(classical_info)
-   q_discord.append(quantum_discord)
-   corr_times.append(t_ps[i])
-   print(i)
+#    test_matrix = rhoT[i,:].reshape(np.shape(P0)[0],np.shape(P0)[1])
+#    quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 1, 2)
+#    q_mutual.append(quantum_mutual_info)
+#    c_info.append(classical_info)
+#    q_discord.append(quantum_discord)
+#    corr_times.append(t_ps[i])
+#    print(i)
 
-q_mutual = np.array(q_mutual)
-c_info = np.array(c_info)
-q_discord = np.array(q_discord)
-corr_times = np.array(corr_times)
+# q_mutual = np.array(q_mutual)
+# c_info = np.array(c_info)
+# q_discord = np.array(q_discord)
+# corr_times = np.array(corr_times)
 
-countb = time.time()
+# countb = time.time()
 
-print('Quantum Correlation Measures =',countb-counta)
+# print('Quantum Correlation Measures =',countb-counta)
 
-#QUANTUM PLOT
-FigureA = plt.figure(14)
+# #QUANTUM PLOT
+# FigureA = plt.figure(14)
 
-en = 1000 #49000
-st = 000
+# en = 1000 #49000
+# st = 000
 
-itvl = 5
-axA = FigureA.add_subplot(111)
-axA.plot(corr_times,c_info,label=r'Classical Info')
-axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
-axA.plot(corr_times,q_discord,label=r'Discord')
-axA.set_xlabel('Time (ps)')
-axA.set_xlim([0,8])
-#axA.set_yticks([])
+# itvl = 5
+# axA = FigureA.add_subplot(111)
+# axA.plot(corr_times,c_info,label=r'Classical Info')
+# axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
+# axA.plot(corr_times,q_discord,label=r'Discord')
+# axA.set_xlabel('Time (ps)')
+# axA.set_xlim([0,8])
+# #axA.set_yticks([])
 
-axB = axA.twinx()
-print(len(t_ps))
-print(len(c_X12))
-print(len(np.arange(st,en,itvl)))
-print(np.arange(st,en,itvl))
-#axB.plot(t_ps[np.arange(st,en,itvl)],c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
-axB.grid()
-axA.grid()
-axB.legend(bbox_to_anchor=([0.3,0.8]))
-axA.legend(bbox_to_anchor=([0.9,0.8]))
+# axB = axA.twinx()
+# print(len(t_ps))
+# print(len(c_X12))
+# print(len(np.arange(st,en,itvl)))
+# print(np.arange(st,en,itvl))
+# #axB.plot(t_ps[np.arange(st,en,itvl)],c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+# axB.grid()
+# axA.grid()
+# axB.legend(bbox_to_anchor=([0.3,0.8]))
+# axA.legend(bbox_to_anchor=([0.9,0.8]))
 
-#plt.legend()
+# #plt.legend()
 
-#plt.savefig('cXX_dw004_100dt_QC.pdf',bbox_inches='tight',dpi=600,format='pdf',transparent=True)
+# #plt.savefig('cXX_dw004_100dt_QC.pdf',bbox_inches='tight',dpi=600,format='pdf',transparent=True)
 
 
 
@@ -1920,40 +1923,40 @@ axA.legend(bbox_to_anchor=([0.9,0.8]))
 
 # %%
 
-# plt.figure(5)
+plt.figure(5)
 
-# st = 0000
+st = 0000
 
-# en = 12000
+en = 12000
 
-# plt.plot(t_ps[st:en], np.abs(oX1eig[0, 1]) * np.abs(psi01[st:en]), label=r'$\Omega_{01} =$' + str(f01))
+plt.plot(t_ps[st:en], np.abs(oX1eig[0, 1]) * np.abs(psi01[st:en]), label=r'$\Omega_{01} =$' + str(f01))
 
-# plt.plot(t_ps[st:en], np.abs(oX1eig[0, 2]) * np.abs(psi02[st:en]), label=r'$\Omega_{02} =$' + str(f02))
+plt.plot(t_ps[st:en], np.abs(oX1eig[0, 2]) * np.abs(psi02[st:en]), label=r'$\Omega_{02} =$' + str(f02))
 
-# plt.plot(t_ps[st:en], np.abs(oX1eig[0, 3]) * np.abs(psi03[st:en]), label=r'$\Omega_{03} =$' + str(f03))
+plt.plot(t_ps[st:en], np.abs(oX1eig[0, 3]) * np.abs(psi03[st:en]), label=r'$\Omega_{03} =$' + str(f03))
 
-# plt.plot(t_ps[st:en], np.abs(oX1eig[1, 4]) * np.abs(psi14[st:en]), label=r'$\Omega_{14} =$' + str(f14))
+plt.plot(t_ps[st:en], np.abs(oX1eig[1, 4]) * np.abs(psi14[st:en]), label=r'$\Omega_{14} =$' + str(f14))
 
-# plt.plot(t_ps[st:en], np.abs(oX1eig[1, 5]) * np.abs(psi15[st:en]), label=r'$\Omega_{15} =$' + str(f15))
+plt.plot(t_ps[st:en], np.abs(oX1eig[1, 5]) * np.abs(psi15[st:en]), label=r'$\Omega_{15} =$' + str(f15))
 
-# plt.plot(t_ps[st:en], np.abs(oX1eig[3, 7]) * np.abs(psi37[st:en]), label=r'$\Omega_{37} =$' + str(f37))
+plt.plot(t_ps[st:en], np.abs(oX1eig[3, 7]) * np.abs(psi37[st:en]), label=r'$\Omega_{37} =$' + str(f37))
 
-# plt.plot(t_ps[st:en], np.abs(oX1eig[3, 8]) * np.abs(psi38[st:en]), label=r'$\Omega_{38} =$' + str(f38))
+plt.plot(t_ps[st:en], np.abs(oX1eig[3, 8]) * np.abs(psi38[st:en]), label=r'$\Omega_{38} =$' + str(f38))
 
-# plt.plot(t_ps[st:en], np.abs(oX1eig[1, 3]) * np.abs(psi13[st:en]), label=r'$\Omega_{13} =$' + str(f13))
+plt.plot(t_ps[st:en], np.abs(oX1eig[1, 3]) * np.abs(psi13[st:en]), label=r'$\Omega_{13} =$' + str(f13))
 
-# plt.xlabel('Time ($ps$)')
+plt.xlabel('Time ($ps$)')
 
-# # plt.ylim(-0.005,0.1)
+# plt.ylim(-0.005,0.1)
 
-# plt.grid()
+plt.grid()
 
-# plt.legend(bbox_to_anchor=([1, 1]))
+plt.legend(bbox_to_anchor=([1, 1]))
 
-# plt.title(r'$\omega_2$ = ' + np.str(np.round(w2, decimals=2)) + ' $\omega_1$ = ' + np.str(
-#     np.round(w1, decimals=2)))  # $\omega=1530cm^{-1}$')
+plt.title(r'$\omega_2$ = ' + np.str(np.round(w2, decimals=2)) + ' $\omega_1$ = ' + np.str(
+    np.round(w1, decimals=2)))  # $\omega=1530cm^{-1}$')
 
-# # plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
+# plt.savefig('Eigcoherences_1p75g_w2_1113',bbox_inches='tight',dpi=600)
 
 plt.show()
 # %%
