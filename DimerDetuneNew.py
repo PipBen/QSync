@@ -11,6 +11,8 @@ To do:
 
 Replace np.matrix (depreciated) with np.array throughout - this doesn't have a getH method, so will need
 .conj().transpose() I think
+
+Remove Hamiltonian from all definitions
 """
 import numpy as np
 import scipy.constants as constant
@@ -27,7 +29,7 @@ import pandas
 
 class DimerDetune:
     """Defines properties and functions of the vibronic dimer system"""
-    def __init__(self, hamiltonian, r_th, r_el, phi1, phi2, detuning, n_cutoff, temperature, tmax_ps):
+    def __init__(self, r_th, r_el, phi1, phi2, detuning, n_cutoff, temperature, tmax_ps):
         """Initialise variables assosciated with the dimer system
         Arguments:
             self - instance of DimerDetune class
@@ -37,7 +39,6 @@ class DimerDetune:
             n_cutoff - cutoff for vibrational mode maximum 
             temperature"""
         #initialise properties of dimer 
-        self.hamiltonian = hamiltonian 
         self.n_cutoff =n_cutoff
         self.temperature =  temperature
 
@@ -113,7 +114,7 @@ class DimerDetune:
 
 
     def exciton_operator(self, e1, e2):
-        """returns |E_e1><E_e2|"""
+        """returns |E_1><E_2|"""
         if e1 == 1:
             e_1 = self.E1
         elif e1 == 2:
@@ -130,8 +131,6 @@ class DimerDetune:
 
     def rotate(self):
         """Unitary rotation from site to excitonic bases"""
-        #why sparse matrix here? - You're right its not really sparse, but we need it to do operations with other sparse matrices
-        # so put it in that format.
         return sp.lil_matrix(np.matrix([[np.cos(self.theta), np.sin(self.theta)],
                                         [-np.sin(self.theta), np.cos(self.theta)]])).tocsr()
 
@@ -161,8 +160,8 @@ class DimerDetune:
         return sp.lil_matrix(p).tocsr()
 
     def a_k(self, k):
-        """|e><e|"""
-        return self.rotate() * self.exciton_operator(k, k) * self.rotate().getH()
+        """U|e><e|U"""
+        return self.rotate() * self.electron_operator(k, k) * self.rotate().getH()
 
     @staticmethod
     def dissipator(operator, rate):
@@ -184,6 +183,8 @@ class DimerDetune:
         oE1 = self.exciton_operator(1, 1)
         oE2 = self.exciton_operator(2, 2)
         sigmaz = oE2 - oE1   # note that this is backwards compared to definition in quantum information approaches
+        #not sure about this
+        # sigmaz = self.rotate() * sigmaz_electron * self.rotate().getH()
         b = self.destroy() #relation
         Iv = self.identity_vib()
         eldis1 = self.a_k(1)
@@ -232,40 +233,95 @@ class DimerDetune:
         Iv = self.identity_vib()
         Ie = sp.eye(2, 2).tocsr()
         ELdis1 = sp.kron(self.a_k(1), sp.kron(Iv, Iv)).tocsr()
-        ELdis2 = sp.kron(self.a_k(1), sp.kron(Iv, Iv)).tocsr()
+        ELdis2 = sp.kron(self.a_k(2), sp.kron(Iv, Iv)).tocsr()
         b = self.destroy()
         oB1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
         oB2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
         nw1 = 1 / (np.exp(self.w1 / self.kBT) - 1)  # thermal distribution
         nw2 = 1 / (np.exp(self.w2 / self.kBT) - 1)
 
-        if(self.hamiltonian == "militello"):
-            H = self.militello_hamiltonian()
-            L = -1j * self.liouv_commutator(H) + self.dissipator(sp.kron(self.electron_operator(1,2),sp.kron(Iv,Iv)).tocsr() , 0.2*self.de)
-            
-        else:
-            H = self.original_hamiltonian()
-            L = -1j * self.liouv_commutator(H) + self.dissipator(ELdis1, self.r_el) + self.dissipator(ELdis2, self.r_el) \
-            + self.dissipator(oB1, self.r_v1 * (nw1 + 1)) + self.dissipator(oB1.getH(), self.r_v1 * nw1) \
-            + self.dissipator(oB2, self.r_v2 * (nw2 + 1)) + self.dissipator(oB2.getH(), self.r_v2 * nw2)
+        H = self.original_hamiltonian()
+        L = -1j * self.liouv_commutator(H) + self.dissipator(ELdis1, self.r_el) + self.dissipator(ELdis2, self.r_el) \
+        + self.dissipator(oB1, self.r_v1 * (nw1 + 1)) + self.dissipator(oB1.getH(), self.r_v1 * nw1) \
+        + self.dissipator(oB2, self.r_v2 * (nw2 + 1)) + self.dissipator(oB2.getH(), self.r_v2 * nw2)
         
         return L
 
+    def collective_liouvillian(self):
+        """only defined for w1=w2"""
+        Iv = self.identity_vib()
+        Ie = sp.eye(2, 2).tocsr()
+
+        I = sp.kron(Ie, sp.kron(Iv,Iv)).tocsr()
+
+        #excitonic operators
+        # oE1 = sp.kron(self.a_k(1), sp.kron(Iv, Iv)).tocsr()
+        # oE2 = sp.kron(self.a_k(2), sp.kron(Iv, Iv)).tocsr()
+        # oE1 = sp.kron(self.electron_operator(1, 1), sp.kron(Iv, Iv))
+        # oE2 = sp.kron(self.electron_operator(2, 2), sp.kron(Iv, Iv))
+        oE1 = self.electron_operator(1, 1)
+        oE2 = self.electron_operator(2, 2)
+        sigmaz_electron = oE2 - oE1
+
+        sigmaz = self.rotate() * sigmaz_electron * self.rotate().getH()
+        sigmaz = sp.kron(sigmaz, sp.kron(Iv, Iv))
+
+        print(self.a_k(1).toarray())
+        print(self.a_k(2).toarray())
+
+        
+        print("sigmaz = ", sigmaz.toarray())
+
+        #vibrational
+        B = 1 / (np.exp(self.w1 / self.kBT) - 1)
+        b = self.destroy()
+        ob1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
+        ob2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
+        ob_cm = (1/np.sqrt(2))*(ob1 + ob2.getH()).tocsr()
+        ob_rd = (1/np.sqrt(2))*(ob1 - ob2.getH()).tocsr()
+
+        L = self.r_el/2 * ( sp.kron(sigmaz, sigmaz.transpose()).tocsr() - sp.kron(I,I)) \
+
+        + self.r_th * (B*(sp.kron(ob_cm.getH(),ob_cm.transpose()) + (1+B)*(sp.kron(ob_rd.getH(),ob_rd.transpose()))) \
+
+        -(B/2) * (sp.kron(I, (ob_cm*ob_cm.getH() + ob_rd*ob_rd.getH()).transpose()) \
+        + sp.kron((ob_cm*ob_cm.getH() + ob_rd*ob_rd.getH()), I) ) \
+        
+        -((1+B)/2) * (sp.kron(I, (ob_cm.getH()*ob_cm + ob_rd.getH()*ob_rd).transpose()) \
+        + sp.kron((ob_cm.getH()*ob_cm + ob_rd.getH()*ob_rd), I) ) )\
+
+        +1j * ((self.dE/2) * (-sp.kron(sigmaz, I) + sp.kron(I,sigmaz.transpose())) \
+
+        +self.w1 * (sp.kron(I, (ob_cm.getH()*ob_cm + ob_rd.getH()*ob_rd).transpose()) \
+        + sp.kron((ob_cm.getH()*ob_cm + ob_rd.getH()*ob_rd), I) ) \
+
+        +self.g1/np.sqrt(2) * ( sp.kron((ob_cm+ob_cm.getH()) + sigmaz * (ob_cm+ob_cm.getH()), I) \
+        - sp.kron(I, ((ob_cm+ob_cm.getH()) + sigmaz * (ob_cm+ob_cm.getH())).transpose()) ) \
+        ) 
+
+        return L
+        
+        
+        
+        
+
+
+
     def init_state(self):
         oE2 = self.exciton_operator(2, 2)
-        oe1  = self.electron_operator(1,1)
+        eldis2 = self.a_k(2)
+        # #collective
+        # oe1  = self.electron_operator(1,1)
         Iv = self.identity_vib()
-        if(self.hamiltonian == "militello"):
-            #rho0 = sp.kron(oe1, sp.kron(Iv,Iv)).todense()
-            rho0 = sp.kron(oe1, sp.kron(self.thermal(self.w1), self.thermal(self.w2))).todense()
-        else:
-            rho0 = sp.kron(oE2, sp.kron(self.thermal(self.w1), self.thermal(self.w2))).todense()
+        #rho0 = sp.kron(oE2, sp.kron(self.thermal(self.w1), self.thermal(self.w2))).todense()
+        rho0 = sp.kron(eldis2, sp.kron(self.thermal(self.w1), self.thermal(self.w2))).todense()
         return rho0
 
 class Operations(DimerDetune):
 
     def steady_state(self):
-        l = self.liouvillian()
+        #l = self.liouvillian()
+        l=self.collective_liouvillian()
         a = sl.eig(l) #eigenvectors of liovillian
         eners = a[0]
         eigstates = a[1]
@@ -283,7 +339,8 @@ class Operations(DimerDetune):
         rho0_l = rho0.reshape(1, (rho0.shape[1]) ** 2)  # initial state in Liouville space
 
         # function to be integrated
-        L = self.liouvillian()
+        #L = self.liouvillian()
+        L = self.collective_liouvillian()
 
         def f(t, y):
             pt = L.dot(y.transpose()).transpose()  # Master equation in Liouville space
@@ -353,7 +410,7 @@ class Operations(DimerDetune):
         y_t_len = len(y_t)
 
         pad_value = y_t[y_t_len-1]
-        # pad_value =0
+        #pad_value =0
 
         pad_size = padding_multiplier * y_t_len
         padded_y = pad_value * np.ones(pad_size)
@@ -389,12 +446,10 @@ class Operations(DimerDetune):
 
 class Plots(Operations):
 
-    def __init__(self, hamiltonian, r_th, r_el, phi1, phi2, detuning, j_k, save_plots, n_cutoff, temperature, tmax_ps):
-        DimerDetune.__init__(self, hamiltonian, r_th, r_el, phi1, phi2, detuning,  n_cutoff, temperature, tmax_ps)
-        if(hamiltonian == "militello"):
-            self.H = self.militello_hamiltonian()
-        else:
-            self.H = self.original_hamiltonian()
+    def __init__(self, r_th, r_el, phi1, phi2, detuning, j_k, save_plots, n_cutoff, temperature, tmax_ps):
+        DimerDetune.__init__(self, r_th, r_el, phi1, phi2, detuning,  n_cutoff, temperature, tmax_ps)
+    
+        self.H = self.original_hamiltonian()
         self.tmax_ps = tmax_ps
         self.rhoT , self.t  = self.time_evol_me(self.tmax_ps)
 
@@ -716,59 +771,38 @@ class Plots(Operations):
         oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
         ex1 = self.oper_evol(oE1mImI,self.rhoT, self.t, self.tmax_ps)
 
+        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
+        freqres1 = 0.5
+        ftlen = (self.t_cm[1]-self.t_cm[0])*np.arange(int(sampleratecm/freqres1))
+        print("pre ex1 len = ", len(ex1))
+        ex1 = ex1[0:len(ftlen)]
 
-        ex1_pad, t_pad = self.padding(ex1, self.t,3)
+        print("ftlen len = ", len(ftlen))
+        print("ex1 len = ", len(ex1))
 
+        figtest =plt.figure(9000)
+        plt.plot(ftlen, ex1)
 
-        freqs, ft = self.fft(ex1_pad, t_pad, True)
+        freqres2 = 0.1
+        # ex1_pad, t_pad = self.padding(ex1, self.t,3)
+        pads = int((sampleratecm/freqres2)-np.shape(ex1)[0]) #30000
+        print("np.shape(ex1) = ", np.shape(ex1) )
+        ex1_pad = np.append(ex1,np.ones(pads))
+   
+        freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(ex1_pad),1/np.size(ex1_pad))
+
+        # freqs, ft = self.fft(ex1_pad, t_pad, True)
+        ft = np.fft.rfft(ex1_pad,int(np.size(ex1_pad)))
         fig = plt.figure(20)
-       
-        plt.plot(freqs, np.abs(ft)**2)
+
+        st = int(0/(sampleratecm/np.size(ex1_pad)))
+        en = int(10000/(sampleratecm/np.size(ex1_pad)))
+               
+        plt.plot(freq_cm0[st:en],np.abs(ft)[st:en]**2)
 
         if(self.save_plots == True):
             fig.savefig('ET_FT_Zoom_25ps.png',bbox_inches='tight',dpi=600)
 
-
-
-    def ET_FT_New(self):
-        oE1 = self.exciton_operator(1, 1)
-        oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
-        Ex1 = self.oper_evol(oE1mImI,self.rhoT, self.t, self.tmax_ps)
-
-
-        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
-        freqres1 = 0.5
-        ftlen = (self.t_cm[1]-self.t_cm[0])*np.arange(int(sampleratecm/freqres1))
-
-        freqres2 = 0.1
-        pads = int((sampleratecm/freqres2)-np.shape(Ex1)[0]) #30000
-
-        Ex1pad = np.append(Ex1,np.zeros(pads))
-     
-        fr10 = np.fft.rfft(Ex1pad,int(np.size(Ex1pad)))
-   
-        freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(Ex1pad),1/np.size(Ex1pad))
-
-        en = self.steps -200
-
-        fig = plt.figure()
-        plt.plot(freq_cm0[0:en],(np.abs(fr10)**2)[0:en],label=r'$\langle X_1\rangle$')
-    
-        plt.ylabel('Real Part of FT', fontsize =13)
-        #plt.yticks()
-        plt.xlabel('Frequency ($cm^{-1}$)', fontsize =13)
-        #plt.xlim(0,150)
-        plt.legend()
-        plt.grid(True,which='both', axis='x')
-        plt.minorticks_on()
-        #plt.yticks([0])
-        plt.title(r'Components of $|E_1\rangle\langle E_1 |$', fontsize =13)
-        fig.show()
-        if(self.save_plots == True):
-            fig.savefig('ET_FT_original.png',bbox_inches='tight',dpi=600)
-
-
-        
 
     def X_FT(self):
 
@@ -903,7 +937,7 @@ class Plots(Operations):
         maxstep = np.shape(self.rhoT)[0] #np.int(np.round(12*dtperps))
         N= self.n_cutoff
                             #maxstep
-        for i in np.arange(0,maxstep,2000):
+        for i in np.arange(0,maxstep,100):
 
             test_matrix = self.rhoT[i,:].reshape(np.shape(P0)[0],np.shape(P0)[1])
             quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 1, 2)
@@ -930,26 +964,28 @@ class Plots(Operations):
 
         itvl = 5
         axA = fig.add_subplot(111)
-        axA.plot(corr_times,c_info,label=r'Classical Info')
-        axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
-        axA.plot(corr_times,q_discord,label=r'Discord')
+        axA.plot(corr_times,c_info,color='k',label=r'Classical Info')
+        #axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
+        axA.plot(corr_times,q_discord, color='C0', label=r'Discord')
         axA.set_xlabel('Time (ps)', fontsize =13)
-        #axA.set_xlim([0,4])
+        axA.set_xlim([0,4])
+        axA.set_ylim([0,0.4])
 
-        axB = axA.twinx()
-        axB.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
-        axB.plot(self.t_ps[np.arange(st,en,itvl)],self.c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
+        # axB = axA.twinx()
+        # axB.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
+        # axB.set_ylim([-1,1])
+        # axB.plot(self.t_ps[np.arange(st,en,itvl)],self.c_X12[np.arange(st,en,itvl)],'r-o',markevery=0.05,markersize=5,label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
         
         print(np.arange(st,en,itvl))
         
-        axB.legend(bbox_to_anchor=([0.3,0.8]), fontsize =13)
+        #axB.legend(bbox_to_anchor=([0.3,0.8]), fontsize =13)
         axA.legend(bbox_to_anchor=([0.9,0.8]), fontsize =13)
         fig.show()
         if(self.save_plots == True):
             fig.savefig('Q_Correlations.png',bbox_inches='tight',dpi=600)
 
     def test(self):
-        print("oX1= ", np.shape(self.oX1.toarray()))
+        print("oX1= ", self.oX1.toarray())
         oe12 = self.electron_operator(1,2)       
         oe21 = self.electron_operator(2,1)
         sigmax = oe21 + oe12
@@ -970,6 +1006,165 @@ class Plots(Operations):
         print("ex1 size = ", np.shape(ex1))
 
         print("ox1 size = ", np.shape(self.oX1))
+        
+        #sample rate in cm^-1
+        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
+        #frequency resolution?
+        freqres1 = 0.2
+        ftlen = (self.t_cm[1]-self.t_cm[0])*np.arange(int(sampleratecm/freqres1))
+        print("ftlen = ", ftlen )
+        print( "self.t_cm= ", self.t_cm)
+
+        print("(self.H).shape[1] = ", (self.H).shape[1])
+
+class MultiPlots(Operations):
+    """Functions for plotting multiple evolutions for different parameter regimes on the same axes"""
+
+    def __init__(self, el_rates, th_rates, phi1, phi2, detuning, save_plots, n_cutoff, temperature, tmax_ps):
+        dummy_rate=0.1
+        self.el_rates = el_rates
+        self.th_rates = th_rates
+        self.phi1 =phi1
+        self.phi2= phi2
+        self.detuning =detuning
+        self.save_plots = save_plots
+        self.j_k = j_k
+        self.n_cutoff =n_cutoff
+        self.temperature =temperature
+        self.tmax_ps =tmax_ps
+        #dummy class of DimerDetune to bring in neccesarry attributes
+        DimerDetune.__init__(self, dummy_rate, dummy_rate, self.phi1, self.phi2, self.detuning,  self.n_cutoff, self.temperature, self.tmax_ps)
+        self.H = self.original_hamiltonian()
+
+        self.tmax_ps = tmax_ps
+    
+        b = self.destroy()
+        self.Iv = self.identity_vib()
+        self.Ie = sp.eye(2, 2).tocsr()
+        
+        self.oB1 = sp.kron(self.Ie, sp.kron(b, self.Iv)).tocsr()
+        self.oB2 = sp.kron(self.Ie, sp.kron(self.Iv, b)).tocsr()
+        self.oX2 = self.oB2 + self.oB2.getH()
+        self.oX1 = self.oB1 + self.oB1.getH()
+        self.elta = np.int(np.round(((2 * constant.pi) / self.omega) / self.dt))
+        
+    def Multi_sync_evol(self):
+
+        fig = plt.figure(25)
+        en = self.steps -200
+        st = 0000
+        itvl = 5
+
+        ax = fig.add_subplot(111)
+        ax.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
+        ax.set_xlabel('Time (ps)', fontsize =13)
+
+        for i in range( len(self.th_rates)):
+            for j in range(len(self.el_rates)):
+                DimerDetune.__init__(self, self.th_rates[i], self.el_rates[j], self.phi1, self.phi2, self.detuning,  self.n_cutoff, self.temperature, self.tmax_ps)
+                rhoT , t  = self.time_evol_me(self.tmax_ps)
+
+                self.t_cm = t / (2 * constant.pi)
+                self.tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  
+                self.tmax_cm = self.tmax / (2 * constant.pi)
+                self.t_ps = (self.t_cm * 1e12) / (100 * constant.c)
+        
+                #time evo of operators, REPRODUCE THIS IN COHERENCES
+                x1 = self.oper_evol(self.oX1,rhoT, t, self.tmax_ps)
+                x2 = self.oper_evol(self.oX2,rhoT, t, self.tmax_ps)
+                c_X12 = self.corrfunc(x1, x2, self.elta)
+
+                ax.plot(self.t_ps[np.arange(st, en, itvl)], c_X12[np.arange(st, en, itvl)], '-o', markevery=0.05, markersize=5,
+                        label="$\Gamma_{deph} = [" +str(self.el_rates[j])+"ps]^{-1}, \Gamma_{th} = [" +str(self.th_rates[i])+ "ps]^{-1}$")
+                
+        fig.legend(bbox_to_anchor=([0.45, 0.6]),loc ='center left')
+        fig.show()
+        ax.set_xlim(0,2)
+        if(self.save_plots == True):
+            fig.savefig('Multi_Sync 0.1,1.png',bbox_inches='tight',dpi=600)
+
+    def Multi_ET(self):
+        fig = plt.figure(26)
+        en = self.steps -200
+        st = 0000
+        itvl = 5
+
+        ax = fig.add_subplot(111)
+
+        ax.set_xlabel('Time (ps)', fontsize =13)
+        #ax.set_ylabel("$|E_1\rangle\langle E_1 |$", fontsize=13)
+
+        for i in range( len(self.th_rates)):
+            for j in range(len(self.el_rates)):
+                DimerDetune.__init__(self, self.th_rates[i], self.el_rates[j], self.phi1, self.phi2, self.detuning,  self.n_cutoff, self.temperature, self.tmax_ps)
+                rhoT , t  = self.time_evol_me(self.tmax_ps)
+
+                self.t_cm = t / (2 * constant.pi)
+                self.tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  
+                self.tmax_cm = self.tmax / (2 * constant.pi)
+                self.t_ps = (self.t_cm * 1e12) / (100 * constant.c)
+
+                oE1 = self.exciton_operator(1, 1)
+        
+                oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
+
+                ex1 = self.oper_evol(oE1mImI,rhoT, t, self.tmax_ps)
+    
+                ax.plot(self.t_ps[0:en], ex1[0:en], label="$\Gamma_{deph} = [" +str(self.el_rates[j])+"ps]^{-1}, \Gamma_{th} = [" +str(self.th_rates[i])+ "ps]^{-1}$")
+        
+        ax.grid(axis='x')
+        ax.set_xlim(0,2)
+        fig.legend(bbox_to_anchor=([0.45, 0.45]), loc = 'upper left')
+        fig.show()
+        if(self.save_plots == True):
+            fig.savefig('Multi_ET 0.1,1.png',bbox_inches='tight',dpi=600)
+
+    def Multi_coherence(self):
+        vals, eigs = np.linalg.eigh(self.H.todense())
+        #oX1eig = eigs.getH() * self.oX1 * eigs
+        j_k = [[0,2]]
+
+        fig = plt.figure(31)
+        ax = fig.add_subplot(111)
+        ax.set_xlabel('Time ($ps$)', fontsize =13)
+        ax.set_ylabel('$||\\rho_{1,3}(t)||$', fontsize =13)
+        ax.grid()
+
+        st = 0000
+        en = self.steps -200
+        itvl = 3 
+
+        N= self.n_cutoff
+        omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2).transpose()
+        for i in range( len(self.th_rates)):
+            for j in range(len(self.el_rates)):
+
+                DimerDetune.__init__(self, self.th_rates[i], self.el_rates[j], self.phi1, self.phi2, self.detuning,  self.n_cutoff, self.temperature, self.tmax_ps)
+                rhoT , t  = self.time_evol_me(self.tmax_ps)   
+
+                self.t_cm = t / (2 * constant.pi)
+                self.tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  
+                self.tmax_cm = self.tmax / (2 * constant.pi)
+                self.t_ps = (self.t_cm * 1e12) / (100 * constant.c)
+ 
+
+                f = np.round(np.abs(omegaarray[0, 2]), decimals=2)
+                opsi_jk = np.kron(eigs[:, 0], eigs[:, 2].getH())
+                psi_jk = self.oper_evol(opsi_jk,rhoT, t, self.tmax_ps)
+                
+
+                ax.plot(self.t_ps[st:en], np.abs(psi_jk[st:en]), ls='-', label="$\Gamma_{deph} = [" +str(self.el_rates[j])+"ps]^{-1}, \Gamma_{th} = [" +str(self.th_rates[i])+ "ps]^{-1}$")
+
+        ax.set_xlim(0,2)
+        fig.legend(bbox_to_anchor=([0.45, 0.9]), loc = 'upper left')
+        if(self.save_plots == True):
+            fig.savefig('1,3 coherence 0.1,0.5,1.png',bbox_inches='tight',dpi=600)
+        fig.show()
+
+
+
+
+
 
 if __name__ == "__main__":
 
@@ -991,22 +1186,33 @@ if __name__ == "__main__":
 
 
     #original  r_th =[1ps]^-1, r_el = [0.1ps]^-1
-    plot = Plots(hamiltonian="original", r_th =0.7, r_el =0.1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 4)
+    plot = Plots(r_th =0.1, r_el =1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = False, n_cutoff=5, temperature=298, tmax_ps = 4.1)
     #plot.test()
     plot.matrix_elements()
     plot.sync_evol()
     plot.coherences()
-    plot.coherences_sigmax_scaling()
+    # # plot.coherences_sigmax_scaling()
     plot.energy_transfer()
 
     # plot.ET_FT_Charlie()
     # #plot.X_FT()
     # #plot.Full_sync_FT()
-    # #plot.ET_FT2()
+    #plot.ET_FT2()
     #plot.fourier_ET()
     # plot.fourier()
     
     # plot.q_correlations()
+
+    # el_rates = [0.1,1]
+    # th_rates = [0.1,1]
+    # multiPlot =MultiPlots(el_rates = el_rates, th_rates =th_rates, phi1 = 0 , phi2 =0, detuning =1, save_plots=False, n_cutoff=5, temperature=298, tmax_ps=2.2)
+    # # # multiPlot.Multi_sync_evol()
+    # multiPlot.Multi_coherence()
+    # # multiPlot.Multi_ET()
+    
+
     plt.show()
+
+
 
     
