@@ -12,7 +12,6 @@ To do:
 Replace np.matrix (depreciated) with np.array throughout - this doesn't have a getH method, so will need
 .conj().transpose() I think
 
-Remove Hamiltonian from all definitions
 """
 import numpy as np
 import scipy.constants as constant
@@ -191,22 +190,45 @@ class DimerDetune:
         eldis2 = self.a_k(2)
         Ie = sp.eye(2, 2).tocsr()
 
-        # if(self.phase_change == True):
-
-
         H = sp.kron((self.dE / 2) * sigmaz, sp.kron(Iv, Iv)) \
             + sp.kron(Ie, sp.kron(self.w1 * b.getH() * b, Iv)) \
             + sp.kron(Ie, sp.kron(Iv, self.w2 * b.getH() * b)) \
             + self.g1 * sp.kron(eldis1, sp.kron(cmath.exp(1j*self.phi1)*b + cmath.exp(-1j*self.phi1)*b.getH(), Iv)) \
             + self.g2 * sp.kron(eldis2, sp.kron(Iv, cmath.exp(1j*self.phi2) * b + cmath.exp(-1j*self.phi2)*b.getH()))    
+        
+        return H
 
-            
-        # else:
-        #     H = sp.kron((self.dE / 2) * sigmaz, sp.kron(Iv, Iv)) \
-        #         + sp.kron(Ie, sp.kron(self.w1 * b.getH() * b, Iv)) \
-        #         + sp.kron(Ie, sp.kron(Iv, self.w2 * b.getH() * b)) \
-        #         + self.g1 * sp.kron(eldis1, sp.kron((b + b.getH()), Iv)) \
-        #         + self.g2 * sp.kron(eldis2, sp.kron(Iv, (b + b.getH())))
+    def collective_hamiltonian(self):
+        Iv = self.identity_vib()
+        Ie = sp.eye(2, 2).tocsr()
+
+        I = sp.kron(Ie, sp.kron(Iv,Iv)).tocsr()
+        oE1 = self.exciton_operator(1, 1)
+        oE2 = self.exciton_operator(2, 2)
+        oE12 = self.exciton_operator(1, 2)
+        oE21 = self.exciton_operator(2, 1)
+        sigmaz = oE2 - oE1
+        #sigmaz_hamiltonian =  sp.kron(sigmaz, sp.kron(Iv, Iv)).tocsr()
+        sigmax = oE12 + oE21
+
+        #SORT OUT THESE SIGMAZ DEFINITIONS
+        self.theta = 0.5 * np.arctan(2 * self.V / self.de)
+        Usigmaz_e = np.sin(2*self.theta) * sigmax +  np.cos(2*self.theta) * sigmaz
+        Usigmaz = sp.kron(Usigmaz_e, sp.kron(Iv, Iv)).tocsr()
+
+        b = self.destroy()
+        ob1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
+        ob2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
+        ob_cm = (1/np.sqrt(2))*(ob1 + ob2).tocsr()
+        ob_rd = (1/np.sqrt(2))*(ob1 - ob2).tocsr()
+
+        # 
+        # \
+
+        H = sp.kron((self.dE / 2) * sigmaz, sp.kron(Iv, Iv)) \
+            +self.w1 * (ob_rd.getH()*ob_rd + ob_cm.getH()*ob_cm) \
+            -(self.g1/np.sqrt(2)) * (Usigmaz * (ob_rd + ob_rd.getH())) \
+            +(self.g1/np.sqrt(2))* (ob_cm + ob_cm.getH())
 
         return H
 
@@ -244,32 +266,75 @@ class DimerDetune:
         L = -1j * self.liouv_commutator(H) + self.dissipator(ELdis1, self.r_el) + self.dissipator(ELdis2, self.r_el) \
         + self.dissipator(oB1, self.r_v1 * (nw1 + 1)) + self.dissipator(oB1.getH(), self.r_v1 * nw1) \
         + self.dissipator(oB2, self.r_v2 * (nw2 + 1)) + self.dissipator(oB2.getH(), self.r_v2 * nw2)
+
+        fig = plt.figure(389)
+        plt.title('Original Liouvillian')
+        im =plt.imshow(np.real(L.todense()), cmap = 'rainbow')
+        cb = fig.colorbar(im)
         
         return L
 
     def collective_liouvillian(self):
+        Iv = self.identity_vib()
+        Ie = sp.eye(2, 2).tocsr()
+
+        I = sp.kron(Ie, sp.kron(Iv,Iv)).tocsr()
+        oE1 = self.exciton_operator(1, 1)
+        oE2 = self.exciton_operator(2, 2)
+        oE12 = self.exciton_operator(1, 2)
+        oE21 = self.exciton_operator(2, 1)
+        sigmaz_e = oE2 - oE1
+        sigmaz =  sp.kron(sigmaz_e, sp.kron(Iv, Iv)).tocsr()
+        sigmax_e = oE12 + oE21
+        sigmax = sp.kron(sigmax_e, sp.kron(Iv, Iv)).tocsr()
+
+        Theta_1 = 0.5*(I - np.sin(2*self.theta) * sigmax - np.cos(2*self.theta) * sigmaz)
+        Theta_2 = 0.5*(I + np.sin(2*self.theta) * sigmax + np.cos(2*self.theta) * sigmaz)
+
+        #vibrational
+        B = 1 / (np.exp(self.w1 / self.kBT) - 1)
+        b = self.destroy()
+        ob1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
+        ob2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
+        b_cm = (1/np.sqrt(2))*(ob1 + ob2).tocsr()
+        b_rd = (1/np.sqrt(2))*(ob1 - ob2).tocsr()
+
+        H = self.collective_hamiltonian()
+        L = -1j * self.liouv_commutator(H) + self.dissipator(b_cm.getH(), self.r_th*B) + self.dissipator(b_cm, self.r_th*(1+B)) \
+            + self.dissipator(b_rd.getH(), self.r_th*B) + self.dissipator(b_rd, self.r_th*(B+1))  + self.dissipator(Theta_1, self.r_el) \
+            + self.dissipator(Theta_2, self.r_el) 
+
+        # fig = plt.figure(389)
+        # plt.title('Collective Liouvillian')
+        # im =plt.imshow(np.real(L.todense()), cmap = 'rainbow')
+        # cb = fig.colorbar(im)
+
+        return L
+
+    def collective_liouvillian_BAD(self):
         """only defined for w1=w2"""
         Iv = self.identity_vib()
         Ie = sp.eye(2, 2).tocsr()
 
         I = sp.kron(Ie, sp.kron(Iv,Iv)).tocsr()
 
-        #excitonic operators
-        # oE1 = sp.kron(self.a_k(1), sp.kron(Iv, Iv)).tocsr()
-        # oE2 = sp.kron(self.a_k(2), sp.kron(Iv, Iv)).tocsr()
-        # oE1 = sp.kron(self.electron_operator(1, 1), sp.kron(Iv, Iv))
-        # oE2 = sp.kron(self.electron_operator(2, 2), sp.kron(Iv, Iv))
-        oE1 = self.electron_operator(1, 1)
-        oE2 = self.electron_operator(2, 2)
-        sigmaz_electron = oE2 - oE1
+        oE1 = self.exciton_operator(1, 1)
+        oE2 = self.exciton_operator(2, 2)
+        oE12 = self.exciton_operator(1, 2)
+        oE21 = self.exciton_operator(2, 1)
+        sigmaz = oE2 - oE1
+        sigmaz_hamiltonian =  sp.kron(sigmaz, sp.kron(Iv, Iv)).tocsr()
+        sigmax = oE12 + oE21
+        
 
-        sigmaz = self.rotate() * sigmaz_electron * self.rotate().getH()
-        sigmaz = sp.kron(sigmaz, sp.kron(Iv, Iv))
-
+        #SORT OUT THESE SIGMAZ DEFINITIONS
+        self.theta = 0.5 * np.arctan(2 * self.V / self.de)
+        sigmaz = np.sin(2*self.theta) * sigmax +  np.cos(2*self.theta) * sigmaz
+        sigmaz = sp.kron(sigmaz, sp.kron(Iv, Iv)).tocsr()
+        sigmax = sp.kron(sigmax, sp.kron(Iv, Iv)).tocsr()
         print(self.a_k(1).toarray())
         print(self.a_k(2).toarray())
 
-        
         print("sigmaz = ", sigmaz.toarray())
 
         #vibrational
@@ -277,44 +342,37 @@ class DimerDetune:
         b = self.destroy()
         ob1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
         ob2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
-        ob_cm = (1/np.sqrt(2))*(ob1 + ob2.getH()).tocsr()
-        ob_rd = (1/np.sqrt(2))*(ob1 - ob2.getH()).tocsr()
+        ob_cm = (1/np.sqrt(2))*(ob1 + ob2).tocsr()
+        ob_rd = (1/np.sqrt(2))*(ob1 - ob2).tocsr()
 
-        L = self.r_el/2 * ( sp.kron(sigmaz, sigmaz.transpose()).tocsr() - sp.kron(I,I)) \
+        # L = (self.r_el/2 * ( sp.kron(sigmaz, sigmaz.transpose()) - sp.kron(I,I)) \
 
-        + self.r_th * (B*(sp.kron(ob_cm.getH(),ob_cm.transpose()) + (1+B)*(sp.kron(ob_rd.getH(),ob_rd.transpose()))) \
+        L = ((self.r_el/2) * (np.cos(2*self.theta)**2 * sp.kron(sigmaz_hamiltonian, sigmaz_hamiltonian.transpose()) \
+            + np.sin(2*self.theta)**2 * sp.kron(sigmax, sigmax.transpose()) \
+            + 0.5 * np.sin(4*self.theta) * (sp.kron(sigmaz_hamiltonian, sigmax.transpose()) + sp.kron(sigmax, sigmaz_hamiltonian.transpose())) - sp.kron(I,I)) \
+
+        + self.r_th * ((B*(sp.kron(ob_cm.getH(),ob_cm.transpose()) + (sp.kron(ob_rd.getH(),ob_rd.transpose()))) \
+        + (1+B)*(sp.kron(ob_cm, ob_cm.conjugate()) + sp.kron(ob_rd,ob_rd.conjugate()))) \
 
         -(B/2) * (sp.kron(I, (ob_cm*ob_cm.getH() + ob_rd*ob_rd.getH()).transpose()) \
         + sp.kron((ob_cm*ob_cm.getH() + ob_rd*ob_rd.getH()), I) ) \
         
         -((1+B)/2) * (sp.kron(I, (ob_cm.getH()*ob_cm + ob_rd.getH()*ob_rd).transpose()) \
-        + sp.kron((ob_cm.getH()*ob_cm + ob_rd.getH()*ob_rd), I) ) )\
+        + sp.kron((ob_cm.getH()*ob_cm + ob_rd.getH()*ob_rd), I) )) \
 
-        +1j * ((self.dE/2) * (-sp.kron(sigmaz, I) + sp.kron(I,sigmaz.transpose())) \
+        +1j * ((self.dE/2) * (-sp.kron(sigmaz_hamiltonian, I) + sp.kron(I,sigmaz_hamiltonian.transpose())) \
 
         +self.w1 * (sp.kron(I, (ob_cm.getH()*ob_cm + ob_rd.getH()*ob_rd).transpose()) \
-        + sp.kron((ob_cm.getH()*ob_cm + ob_rd.getH()*ob_rd), I) ) \
+        - sp.kron((ob_cm.getH()*ob_cm + ob_rd.getH()*ob_rd), I) ) \
 
-        +self.g1/np.sqrt(2) * ( sp.kron((ob_cm+ob_cm.getH()) + sigmaz * (ob_cm+ob_cm.getH()), I) \
-        - sp.kron(I, ((ob_cm+ob_cm.getH()) + sigmaz * (ob_cm+ob_cm.getH())).transpose()) ) \
-        ) 
-
+        +(self.g1/np.sqrt(2)) * (sp.kron(I, (-(ob_cm+ob_cm.getH()) - sigmaz * (ob_rd+ob_rd.getH())).transpose())
+        + sp.kron(-(ob_cm+ob_cm.getH()) + sigmaz * (ob_rd+ob_rd.getH()), I) ) )).tocsr()
+        
         return L
         
-        
-        
-        
-
-
-
     def init_state(self):
         oE2 = self.exciton_operator(2, 2)
-        eldis2 = self.a_k(2)
-        # #collective
-        # oe1  = self.electron_operator(1,1)
-        Iv = self.identity_vib()
-        #rho0 = sp.kron(oE2, sp.kron(self.thermal(self.w1), self.thermal(self.w2))).todense()
-        rho0 = sp.kron(eldis2, sp.kron(self.thermal(self.w1), self.thermal(self.w2))).todense()
+        rho0 = sp.kron(oE2, sp.kron(self.thermal(self.w1), self.thermal(self.w2))).todense()
         return rho0
 
 class Operations(DimerDetune):
@@ -337,7 +395,7 @@ class Operations(DimerDetune):
         # initial state
         rho0 = self.init_state()
         rho0_l = rho0.reshape(1, (rho0.shape[1]) ** 2)  # initial state in Liouville space
-
+        print("rho0_l.shape = ", rho0_l.shape)
         # function to be integrated
         #L = self.liouvillian()
         L = self.collective_liouvillian()
@@ -362,7 +420,7 @@ class Operations(DimerDetune):
             k += 1  # keep index increasing with time.
         count2 = time.time()
         print('Integration =', count2 - count1)
-
+        # print("rhoT = ", rhoT)
         return rhoT, t
 
     def oper_evol(self, operator, rhoT, t, tmax_ps):
@@ -504,7 +562,7 @@ class Plots(Operations):
         if(self.save_plots == True):
             fig.savefig('sync_evol.png',bbox_inches='tight',dpi=600)
 
-
+    
     def matrix_elements(self):
         vals, eigs = np.linalg.eigh(self.H.todense())
         j_k = self.j_k
@@ -695,226 +753,36 @@ class Plots(Operations):
         if(self.save_plots == True):
             fig.savefig('ET_withsync.png',bbox_inches='tight',dpi=600)
     
-    def fourier(self):
-        vals, eigs = np.linalg.eigh(self.H.todense())
+    def vib_collec_evol(self):
+        Iv = self.identity_vib()
+        Ie = sp.eye(2, 2).tocsr()
 
-        rho0 = self.init_state()
-        rho0eig = eigs.getH() * rho0 * eigs
+        I = sp.kron(Ie, sp.kron(Iv,Iv)).tocsr()
+        b = self.destroy()
+        ob1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
+        ob2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
+        ob_cm = (1/np.sqrt(2))*(ob1 + ob2).tocsr()
+        ob_rd = (1/np.sqrt(2))*(ob1 - ob2).tocsr()
 
-        oX1eig = eigs.getH() * self.oX1 * eigs
-        oX2eig = eigs.getH() * self.oX2 * eigs
-        
-        #X_j,k rho0_j,k
-        coefx1 = np.multiply(oX1eig, rho0eig)
-        coefx2 = np.multiply(oX2eig, rho0eig)
-        
-        #bottom triangular?
-        coefx1chop = np.tril(coefx1,k=-1)
-        coefx2chop = np.tril(coefx2,k=-1)
-     
-        N= self.n_cutoff
-        #all frequencies
-        omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(
-        2 * N ** 2, 2 * N ** 2).transpose()
-        omegachop = np.tril(omegaarray,k=-1)
+        #POPULATIONS
+        cm = self.oper_evol(ob_cm.getH()*ob_cm,self.rhoT, self.t, self.tmax_ps)
+        rd = self.oper_evol(ob_rd.getH()*ob_rd,self.rhoT, self.t, self.tmax_ps)
 
-        count4 = time.time()
-
-        #sample rate in cm^-1
-        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
-        #frequency resolution?
-        freqres1 = 0.5
-        ftlen = (self.t_cm[1]-self.t_cm[0])*np.arange(int(sampleratecm/freqres1))
-
-        anaX1array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
-        anaX2array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
-        anaX1 = np.zeros(np.size(ftlen))
-        anaX2 = np.zeros(np.size(ftlen))
-
-        for a in np.arange(np.size(ftlen)):
-            anaX1array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx1chop)
-            anaX1[a] = np.sum(anaX1array[:,:,a]) + np.trace(coefx1)
-            anaX2array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefx2chop)
-            anaX2[a] = np.sum(anaX2array[:,:,a]) + np.trace(coefx2)
-
-        freqres2 = 0.1
-        pads = int((sampleratecm/freqres2)-np.shape(anaX1)[0]) #30000
-        x1pad = np.append(anaX1,np.zeros(pads))
-        x2pad = np.append(anaX2,np.zeros(pads))
-        fr10 = np.fft.rfft(x1pad,int(np.size(x1pad)))
-        fr20 = np.fft.rfft(x2pad,int(np.size(x2pad)))
-        freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(x1pad),1/np.size(x1pad))
-
-        count5 = time.time()
-        print('Measurements =',count5-count4)
-
-        st = int(1100/(sampleratecm/np.size(x1pad)))
-        en = int(1130/(sampleratecm/np.size(x1pad)))
-
-        fig = plt.figure(5)
-        plt.plot(freq_cm0[st:en],np.real(fr10)[st:en],label=r'$\langle X_1\rangle$')
-        plt.plot(freq_cm0[st:en],np.real(fr20)[st:en],label=r'$\langle X_2\rangle$')
-        plt.ylabel('Real Part of FT', fontsize =13)
-        plt.xlabel('Frequency ($cm^{-1}$)', fontsize =13)
-        plt.legend()
-        plt.grid(True,which='both')
-        plt.minorticks_on()
-        plt.yticks([0])
-        plt.title(r'Components of $\langle X\rangle$ at $T=2ps$', fontsize =13)
-        fig.show()
-        if(self.save_plots == True):
-            fig.savefig('FT_original.png',bbox_inches='tight',dpi=600)
-
-
-    def ET_FT_Charlie(self):
-        oE1 = self.exciton_operator(1, 1)
-        oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
-        ex1 = self.oper_evol(oE1mImI,self.rhoT, self.t, self.tmax_ps)
-
-        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
-        freqres1 = 0.5
-        ftlen = (self.t_cm[1]-self.t_cm[0])*np.arange(int(sampleratecm/freqres1))
-        print("pre ex1 len = ", len(ex1))
-        ex1 = ex1[0:len(ftlen)]
-
-        print("ftlen len = ", len(ftlen))
-        print("ex1 len = ", len(ex1))
-
-        figtest =plt.figure(9000)
-        plt.plot(ftlen, ex1)
-
-        freqres2 = 0.1
-        # ex1_pad, t_pad = self.padding(ex1, self.t,3)
-        pads = int((sampleratecm/freqres2)-np.shape(ex1)[0]) #30000
-        print("np.shape(ex1) = ", np.shape(ex1) )
-        ex1_pad = np.append(ex1,np.ones(pads))
-   
-        freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(ex1_pad),1/np.size(ex1_pad))
-
-        # freqs, ft = self.fft(ex1_pad, t_pad, True)
-        ft = np.fft.rfft(ex1_pad,int(np.size(ex1_pad)))
-        fig = plt.figure(20)
-
-        st = int(0/(sampleratecm/np.size(ex1_pad)))
-        en = int(10000/(sampleratecm/np.size(ex1_pad)))
-               
-        plt.plot(freq_cm0[st:en],np.abs(ft)[st:en]**2)
-
-        if(self.save_plots == True):
-            fig.savefig('ET_FT_Zoom_25ps.png',bbox_inches='tight',dpi=600)
-
-
-    def X_FT(self):
-
-        X1 = self.oper_evol(self.oX1, self.rhoT, self.t, self.tmax_ps)
-        X2 = self.oper_evol(self.oX2, self.rhoT, self.t, self.tmax_ps)
-
-        # X1 = X1[6000:7000]
-        # X2 = X2[6000:7000]
-
-        X1_pad, t_pad1 = self.padding(X1, self.t_cm,1)
-        X2_pad, t_pad2 = self.padding(X2, self.t_cm,1)
-
-        figtest = plt.figure(100)
-        plt.plot(t_pad1,X1_pad)
-        figtest.show()
-
-        freqs1, ft1 = self.fft(X1_pad, t_pad1, True)
-        freqs2, ft2 = self.fft(X2_pad, t_pad2, True)
-
-        fig = plt.figure(21)
-
-        plt.plot(freqs1, np.abs(ft1)**2)
-        plt.plot(freqs2, np.abs(ft2)**2)
-        # plt.xlim(1100,1300)
-
-        if(self.save_plots == True):
-            fig.savefig('X_FT_Zoom_25ps.png',bbox_inches='tight',dpi=600)
-
-    
-    def fourier_ET(self):
-        vals, eigs = np.linalg.eigh(self.H.todense())
-        print("vals shape =", np.shape(vals))
-
-
-        rho0 = self.init_state()
-        rho0eig = eigs.getH() * rho0 * eigs
-
-        oE1 = self.exciton_operator(1, 1)
-        oE2 = self.exciton_operator(2, 2)
-        oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
-        oE2mImI = sp.kron(oE2, sp.kron(self.Iv, self.Iv)).tocsr()
-        # ex2 = self.oper_evol(oE2mImI,self.rhoT, self.t, self.tmax_ps)
-        #Ex1 = self.oper_evol(oE1mImI,self.rhoT, self.t, self.tmax_ps)
-
-        oEx1eig = eigs.getH() * oE1mImI * eigs
-        oEx2eig = eigs.getH() * oE2mImI * eigs
-        coefEx1 = np.multiply(oEx1eig, rho0eig)
-        coefEx2 = np.multiply(oEx2eig, rho0eig)
-    
-        coefEx1chop = np.tril(coefEx1,k=-1)
-        coefEx2chop = np.tril(coefEx2,k=-1)
-
-        N= self.n_cutoff
-        print("N = ", N)
-        omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(
-        2 * N ** 2, 2 * N ** 2).transpose()
-        omegachop = np.tril(omegaarray,k=-1)
-
-        count4 = time.time()
-
-        sampleratecm = 1/(self.t_cm[1]-self.t_cm[0])
-        freqres1 = 0.5
-        ftlen = (self.t_cm[1]-self.t_cm[0])*np.arange(int(sampleratecm/freqres1))
-
-        anaEx1array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
-        anaEx2array = np.zeros([2*N**2,2*N**2,np.size(ftlen)])
-
-        anaEx1 = np.zeros(np.size(ftlen))
-        anaEx2 = np.zeros(np.size(ftlen))
-
-
-        for a in np.arange(np.size(ftlen)):
-            anaEx1array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefEx1chop)
-            anaEx2array[:,:,a] = np.multiply((2*np.cos(omegachop*2*constant.pi*ftlen[a])),coefEx2chop)
-
-            anaEx1[a] = np.sum(anaEx1array[:,:,a]) + np.trace(coefEx1)
-            anaEx2[a] = np.sum(anaEx1array[:,:,a]) + np.trace(coefEx1)
-
-        freqres2 = 0.1
-        pads = int((sampleratecm/freqres2)-np.shape(anaEx1)[0]) #30000
-
-
-        Ex1pad = np.append(anaEx1,np.zeros(pads))
-        Ex2pad = np.append(anaEx2,np.zeros(pads))
-
-     
-        fr10 = np.fft.rfft(Ex1pad,int(np.size(Ex1pad)))
-        fr20 = np.fft.rfft(Ex2pad,int(np.size(Ex2pad)))
-
-        freq_cm0 = sampleratecm*np.arange(0,1-1/np.size(Ex1pad),1/np.size(Ex1pad))
-
-        count5 = time.time()
-        print('Measurements =',count5-count4)
-
+        st = 0000
         en = self.steps -200
-
-        fig = plt.figure(7)
-        plt.plot(freq_cm0[0:en],(np.abs(fr10))[0:en],label=r'$\langle X_1\rangle$')
-        plt.plot(freq_cm0[0:en],(np.abs(fr20))[0:en],label=r'$\langle X_1\rangle$')
-
     
-        plt.ylabel('Real Part of FT', fontsize =13)
-        plt.xlabel('Frequency ($cm^{-1}$)', fontsize =13)
-        plt.xlim(0,150)
-        plt.legend()
-        plt.grid(True,which='both', axis='x')
-        plt.minorticks_on()
-        #plt.yticks([0])
-        plt.title(r'Components of $|E_1\rangle\langle E_1 |$', fontsize =13)
+        fig = plt.figure(900)
+        axA = fig.add_subplot(111)
+        axA.plot(self.t_ps[0:en], cm[0:en], label=r'$b^{\dagger}_{cm}b_{cm}$')
+        axA.plot(self.t_ps[0:en], rd[0:en], label=r'$b^{\dagger}_{rd}b_{rd}$')
+
+        fig.legend(loc=(0.6,0.6), fontsize =13)
+        axA.set_xlabel('Time ($ps$)', fontsize =13)
+        axA.grid(axis='x')
         fig.show()
         if(self.save_plots == True):
-            fig.savefig('ET_FT_original.png',bbox_inches='tight',dpi=600)
+            fig.savefig('b_ops_evol.png',bbox_inches='tight',dpi=600)
+
 
     def q_correlations(self):
 
@@ -1161,6 +1029,120 @@ class MultiPlots(Operations):
             fig.savefig('1,3 coherence 0.1,0.5,1.png',bbox_inches='tight',dpi=600)
         fig.show()
 
+    def liouv_eigs(self):
+        """find equilibrium state- plot evolutions
+        DEFINED SEPERATE RHOT EVOLUTION HERE"""
+        th_data = np.zeros(len(self.th_rates)*len(self.el_rates))
+        el_data = np.zeros(len(self.th_rates)*len(self.el_rates))
+        eigval_differences = np.zeros(len(self.th_rates)*len(self.el_rates))
+        n = 0
+
+
+        for i in range( len(self.th_rates)):
+            for j in range(len(self.el_rates)):
+
+                th_data[n] = self.th_rates[i]
+                el_data[n] = self.el_rates[j]
+                count1 = time.time()
+
+                DimerDetune.__init__(self, self.th_rates[i], self.el_rates[j], self.phi1, self.phi2, self.detuning,  self.n_cutoff, self.temperature, self.tmax_ps)
+                # rhoT , t  = self.time_evol_me(self.tmax_ps)   
+                # self.t_cm = t / (2 * constant.pi)
+                # self.tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  
+                # self.tmax_cm = self.tmax / (2 * constant.pi)
+                # self.t_ps = (self.t_cm * 1e12) / (100 * constant.c)
+
+                vals, eigs = np.linalg.eig(self.collective_liouvillian().todense())
+
+                eigID = 0
+                val = 100
+                lowest_eigID = 0
+                second_lowest_eigID = 0
+
+                #identify smallest eigvalue
+                for k in range(len(vals)):
+                    if(np.abs(np.real(vals[k]))<np.abs(val)):
+                        val = np.real(vals[k])
+                        lowest_eigID =k
+                val = 100
+                for l in range(len(vals)):
+                    if(np.abs(np.real(vals[l]))<np.abs(val) and l != lowest_eigID):
+                        val = np.real(vals[l])
+                        second_lowest_eigID =l
+
+                eig_difference = np.real(vals[second_lowest_eigID]) - np.real(vals[lowest_eigID])
+                eigval_differences[n] = eig_difference
+                n+=1
+                print("eig_difference = ", eig_difference)
+                count2 = time.time()
+                print('Difference Time =', count2 - count1)
+
+        fig = plt.figure()
+        plt.title('Eigenvalue differences')
+        plt.xlabel("$\Gamma_{th}$", fontsize =13)
+        plt.ylabel("$\Gamma_{deph}$", fontsize =13)
+        # im =plt.imshow(, cmap = 'rainbow')
+        print(th_data)
+        print(el_data)
+        print(eigval_differences)
+        plt.scatter(th_data,el_data, c=eigval_differences, s =50)
+        cb = plt.colorbar()
+        cb.set_label(r"$\lambda_2^R - \lambda_1^R$")
+
+        
+        #np.set_printoptions(threshold=np.inf)
+        #print(vals)
+        
+        #print("liouv shape = ",self.collective_liouvillian().todense())
+        # print("eigs shape = ", eigs.shape)
+        # print("len(vals)= ",len(vals))
+        
+        
+                #print("eigs[lowest_eigID] = ", eigs[lowest_eigID])
+            # if(np.conjugate(vals[lowest_eigID]) == vals[i]):
+                
+            #     lowest_eig_conjID = i
+
+        # for i in range(len(vals)):
+        #     if (self.truncate(np.real(vals[i]),3) == self.truncate(np.real(vals[lowest_eigID]),3)):
+        #         print(i)
+        #         print("YES")
+        #         print(vals[i])
+
+        #SECOND LOWEST EIGENVALUE
+        
+
+        
+
+
+        # print("////////////////")
+        # print(vals[1])
+        # print("lowest_eigID = ", lowest_eigID)
+        # print("vals[0] = ", vals[0])
+        # print("vals[lowest_eigID] = ", vals[lowest_eigID])
+        # print("vals[lowest_eigID_conj] = ", vals[lowest_eig_conjID])
+      
+
+        
+
+        # if(self.save_plots == True):
+        #     fig.savefig('sync_evol.png',bbox_inches='tight',dpi=600)
+
+        # eigL = np.linalg.eig(self.collective_liouvillian().todense())
+
+        # #inds = np.abs(np.imag(eigL[0])).argsort()
+
+        # inds = eigL[0].argsort()
+        # inds = inds[::-1]
+        # orderedeigL = eigL[1][:,inds]
+        # orderedenL = eigL[0][inds]
+
+        # print("orderedeigL = ", orderedeigL)
+
+
+        
+
+
 
 
 
@@ -1186,26 +1168,23 @@ if __name__ == "__main__":
 
 
     #original  r_th =[1ps]^-1, r_el = [0.1ps]^-1
-    plot = Plots(r_th =0.1, r_el =1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = False, n_cutoff=5, temperature=298, tmax_ps = 4.1)
+    plot = Plots(r_th =0.1, r_el =1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 2.1)
     #plot.test()
-    plot.matrix_elements()
-    plot.sync_evol()
-    plot.coherences()
-    # # plot.coherences_sigmax_scaling()
-    plot.energy_transfer()
-
-    # plot.ET_FT_Charlie()
-    # #plot.X_FT()
-    # #plot.Full_sync_FT()
-    #plot.ET_FT2()
-    #plot.fourier_ET()
-    # plot.fourier()
+    # plot.matrix_elements()
+    #plot.sync_evol()
+    # plot.coherences()
     
+    # # plot.coherences_sigmax_scaling()
+    # plot.energy_transfer()
+    # plot.vib_collec_evol()
     # plot.q_correlations()
 
-    # el_rates = [0.1,1]
-    # th_rates = [0.1,1]
-    # multiPlot =MultiPlots(el_rates = el_rates, th_rates =th_rates, phi1 = 0 , phi2 =0, detuning =1, save_plots=False, n_cutoff=5, temperature=298, tmax_ps=2.2)
+    el_rates = [0.05,0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
+    th_rates = [0.05,0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
+    # el_rates = [0.1]
+    # th_rates = [0.1]
+    multiPlot =MultiPlots(el_rates = el_rates, th_rates =th_rates, phi1 = 0 , phi2 =0, detuning =1, save_plots=False, n_cutoff=5, temperature=298, tmax_ps=2.2)
+    multiPlot.liouv_eigs()
     # # # multiPlot.Multi_sync_evol()
     # multiPlot.Multi_coherence()
     # # multiPlot.Multi_ET()

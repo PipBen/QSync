@@ -715,31 +715,31 @@ print('Integration =', count2 - count1)
 
 #
 
-# nw1 = 1/(np.exp(w1/kBT)-1) # thermal distribution N - see notes.
+nw1 = 1/(np.exp(w1/kBT)-1) # thermal distribution N - see notes.
 
-# nw2 = 1/(np.exp(w2/kBT)-1)
+nw2 = 1/(np.exp(w2/kBT)-1)
 
-#
 
-# Q = sj.dissgeneral(ELdis1,r_el) + sj.dissgeneral(ELdis2,r_el) \
 
-#    + sj.dissgeneral(oB1,r_v1*(nw1+1)) + sj.dissgeneral(oB1.getH(),r_v1*nw1)     \
+Q = sj.dissgeneral(ELdis1,r_el) + sj.dissgeneral(ELdis2,r_el) \
 
-#    + sj.dissgeneral(oB2,r_v2*(nw2+1)) + sj.dissgeneral(oB2.getH(),r_v2*nw2)   
+   + sj.dissgeneral(oB1,r_v1*(nw1+1)) + sj.dissgeneral(oB1.getH(),r_v1*nw1)     \
 
-#
+   + sj.dissgeneral(oB2,r_v2*(nw2+1)) + sj.dissgeneral(oB2.getH(),r_v2*nw2)   
 
-# eigL = np.linalg.eig(Q.todense())
 
-##inds = np.abs(np.imag(eigL[0])).argsort()
 
-# inds = eigL[0].argsort()
+eigL = np.linalg.eig(Q.todense())
 
-# inds = inds[::-1]
+#inds = np.abs(np.imag(eigL[0])).argsort()
 
-# orderedeigL = eigL[1][:,inds]
+inds = eigL[0].argsort()
 
-# orderedenL = eigL[0][inds]
+inds = inds[::-1]
+
+orderedeigL = eigL[1][:,inds]
+
+orderedenL = eigL[0][inds]
 
 #
 
@@ -750,49 +750,49 @@ print('Integration =', count2 - count1)
 
 # %%
 
-# oL0 = orderedeigL[:,0].reshape(50,50)
+oL0 = orderedeigL[:,0].reshape(50,50)
 
-# oL0eig = orderedeig5.getH()*oL0*orderedeig5
+oL0eig = orderedeig5.getH()*oL0*orderedeig5
 
-# oL1 = orderedeigL[:,1].reshape(50,50)
+oL1 = orderedeigL[:,1].reshape(50,50)
 
-# oL1eig = orderedeig5.getH()*oL1*orderedeig5
+oL1eig = orderedeig5.getH()*oL1*orderedeig5
 
-# oL2 = orderedeigL[:,2].reshape(50,50)
+oL2 = orderedeigL[:,2].reshape(50,50)
 
-# oL2eig = orderedeig5.getH()*oL2*orderedeig5
+oL2eig = orderedeig5.getH()*oL2*orderedeig5
 
-# oL3 = orderedeigL[:,3].reshape(50,50)
+oL3 = orderedeigL[:,3].reshape(50,50)
 
-# oL3eig = orderedeig5.getH()*oL3*orderedeig5
+oL3eig = orderedeig5.getH()*oL3*orderedeig5
 
-# oL4 = orderedeigL[:,4].reshape(50,50)
+oL4 = orderedeigL[:,4].reshape(50,50)
 
-# oL4eig = orderedeig5.getH()*oL4*orderedeig5
+oL4eig = orderedeig5.getH()*oL4*orderedeig5
 
-# oL5 = orderedeigL[:,5].reshape(50,50)
+oL5 = orderedeigL[:,5].reshape(50,50)
 
-# oL5eig = orderedeig5.getH()*oL5*orderedeig5
+oL5eig = orderedeig5.getH()*oL5*orderedeig5
 
-# oL6 = orderedeigL[:,6].reshape(50,50)
+oL6 = orderedeigL[:,6].reshape(50,50)
 
-# oL6eig = orderedeig5.getH()*oL6*orderedeig5
+oL6eig = orderedeig5.getH()*oL6*orderedeig5
 
-# oL7 = orderedeigL[:,7].reshape(50,50)
+oL7 = orderedeigL[:,7].reshape(50,50)
 
-# oL7eig = orderedeig5.getH()*oL7*orderedeig5
+oL7eig = orderedeig5.getH()*oL7*orderedeig5
 
-# oL8 = orderedeigL[:,8].reshape(50,50)
+oL8 = orderedeigL[:,8].reshape(50,50)
 
-# oL8eig = orderedeig5.getH()*oL8*orderedeig5
+oL8eig = orderedeig5.getH()*oL8*orderedeig5
 
-# oL9 = orderedeigL[:,9].reshape(50,50)
+oL9 = orderedeigL[:,9].reshape(50,50)
 
-# oL9eig = orderedeig5.getH()*oL9*orderedeig5
+oL9eig = orderedeig5.getH()*oL9*orderedeig5
 
-#
 
-# oLsum2to9 = oL2+oL3+oL4+oL5+oL6+oL7+oL8+oL9
+
+oLsum2to9 = oL2+oL3+oL4+oL5+oL6+oL7+oL8+oL9
 
 
 # %%
