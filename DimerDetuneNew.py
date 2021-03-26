@@ -656,6 +656,7 @@ class Plots(Operations):
         of their corresponding position matrix element in the open quantum system evolution."""
 
         vals, eigs = np.linalg.eigh(self.H.todense())
+        print("COHERENCE EIG SHAPE = ", eigs[1].shape)
         oe12 = self.exciton_operator(1,2)       
         oe21 = self.exciton_operator(2,1)
         sigmax = oe21 + oe12
@@ -853,7 +854,7 @@ class Plots(Operations):
             fig.savefig('Q_Correlations.png',bbox_inches='tight',dpi=600)
 
     def test(self):
-        print("oX1= ", self.oX1.toarray())
+        print("oX1= ", self.oX1.shape)
         oe12 = self.electron_operator(1,2)       
         oe21 = self.electron_operator(2,1)
         sigmax = oe21 + oe12
@@ -1055,29 +1056,106 @@ class MultiPlots(Operations):
                 vals, eigs = np.linalg.eig(self.collective_liouvillian().todense())
 
                 eigID = 0
-                val = 100
+                val = 50
                 lowest_eigID = 0
                 second_lowest_eigID = 0
+                third_lowest_eigID = 0
+                lowest_X1coupling = 0
+                second_X1coupling = 0
+                third_X1coupling = 0
+                lowest_X2coupling = 0
+                second_X2coupling = 0
+                third_X2coupling = 0
+
+                
+                N=np.int(np.sqrt(np.shape(eigs[1])[1]))
+                print("N= ", N)
 
                 #identify smallest eigvalue
                 for k in range(len(vals)):
                     if(np.abs(np.real(vals[k]))<np.abs(val)):
                         val = np.real(vals[k])
                         lowest_eigID =k
-                val = 100
+
+                        lowest_X1coupling = np.trace(self.oX1.dot(eigs[lowest_eigID].reshape(N, N)))
+                        print("lowest_X1coupling = ", lowest_X1coupling)
+
+                        lowest_X2coupling = np.trace(self.oX2.dot(eigs[lowest_eigID].reshape(N, N)))
+                        print("lowest_X2coupling = ", lowest_X2coupling)
+                #second smallest
+                val = 50
                 for l in range(len(vals)):
                     if(np.abs(np.real(vals[l]))<np.abs(val) and l != lowest_eigID):
                         val = np.real(vals[l])
                         second_lowest_eigID =l
+                        print("eig shape = ", eigs[second_lowest_eigID].shape)
 
-                eig_difference = np.real(vals[second_lowest_eigID]) - np.real(vals[lowest_eigID])
-                eigval_differences[n] = eig_difference
+                        second_X1coupling = np.trace(self.oX1.dot(eigs[second_lowest_eigID].reshape(N, N)))
+                        print("second_X1coupling = ", second_X1coupling)
+
+                        second_X2coupling = np.trace(self.oX2.dot(eigs[second_lowest_eigID].reshape(N, N)))
+                        print("second_X2coupling = ", second_X2coupling)
+                #third smallest
+                val = 50
+                for m in range(len(vals)):
+                    if(np.abs(np.real(vals[m]))<np.abs(val) and m != lowest_eigID and m != second_lowest_eigID):
+                        val = np.real(vals[m])
+                        third_lowest_eigID =m
+
+                        third_X1coupling = np.trace(self.oX1.dot(eigs[third_lowest_eigID].reshape(N, N)))
+                        print("third_X1coupling = ", third_X1coupling)
+
+                        third_X2coupling = np.trace(self.oX2.dot(eigs[third_lowest_eigID].reshape(N, N)))
+                        print("third_X2coupling = ", third_X2coupling)
+                
+
+
+                # print("lowest_X1coupling = ", np.abs(lowest_X1coupling))
+                # print(np.abs(second_X1coupling))
+                # print(np.abs(third_X1coupling))
+
+                # print("lowest_X2coupling = ", np.abs(lowest_X2coupling))
+                # print(np.abs(second_X2coupling))
+                # print(np.abs(third_X2coupling))
+
+
+                lowest_coupling = np.abs(lowest_X1coupling + lowest_X2coupling)
+                second_coupling = np.abs(second_X1coupling + second_X2coupling)
+                third_coupling = np.abs(third_X1coupling + third_X2coupling)
+
+                couplings = np.asarray([lowest_coupling, second_coupling, third_coupling])
+                sort_couplings = sorted(couplings, key=abs)
+                print(sort_couplings)
+
+                l1= 0 
+                if(sort_couplings[1] == lowest_coupling):
+                    l1 = np.real(vals[lowest_eigID])
+                elif(sort_couplings[1] == second_coupling): 
+                    l1 = np.real(vals[second_lowest_eigID])
+                elif(sort_couplings[1] == third_coupling): 
+                    l1 = np.real(vals[third_lowest_eigID])
+
+                l2= 0 
+                if(sort_couplings[2] == lowest_coupling):
+                    l2 = np.real(vals[lowest_eigID])
+                elif(sort_couplings[2] == second_coupling): 
+                    l2 = np.real(vals[second_lowest_eigID])
+                elif(sort_couplings[2] == third_coupling): 
+                    l2 = np.real(vals[third_lowest_eigID])
+
+                
+
+
+
+                #eig_difference = np.real(vals[second_lowest_eigID]) - np.real(vals[lowest_eigID])
+                #eigval_differences[n] = eig_difference
+                eigval_differences[n] = l2 - l1
                 n+=1
-                print("eig_difference = ", eig_difference)
+                # print("eig_difference = ", eig_difference)
                 count2 = time.time()
                 print('Difference Time =', count2 - count1)
 
-        fig = plt.figure()
+        plt.figure()
         plt.title('Eigenvalue differences')
         plt.xlabel("$\Gamma_{th}$", fontsize =13)
         plt.ylabel("$\Gamma_{deph}$", fontsize =13)
@@ -1168,21 +1246,23 @@ if __name__ == "__main__":
 
 
     #original  r_th =[1ps]^-1, r_el = [0.1ps]^-1
-    plot = Plots(r_th =0.1, r_el =1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 2.1)
+    # plot = Plots(r_th =0.1, r_el =1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 2.1)
     #plot.test()
     # plot.matrix_elements()
     #plot.sync_evol()
     # plot.coherences()
     
-    # # plot.coherences_sigmax_scaling()
+    # plot.coherences_sigmax_scaling()
     # plot.energy_transfer()
     # plot.vib_collec_evol()
     # plot.q_correlations()
 
-    el_rates = [0.05,0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
-    th_rates = [0.05,0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
-    # el_rates = [0.1]
-    # th_rates = [0.1]
+    # el_rates = [0.05,0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
+    # th_rates = [0.05,0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
+    # el_rates = [0.1,0.25,0.5,0.75,1]
+    # th_rates = [0.1,0.25,0.5,0.75,1]
+    el_rates = [0.1,0.5,1]
+    th_rates = [0.1,0.5,1]
     multiPlot =MultiPlots(el_rates = el_rates, th_rates =th_rates, phi1 = 0 , phi2 =0, detuning =1, save_plots=False, n_cutoff=5, temperature=298, tmax_ps=2.2)
     multiPlot.liouv_eigs()
     # # # multiPlot.Multi_sync_evol()
