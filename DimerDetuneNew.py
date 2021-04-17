@@ -21,6 +21,7 @@ import cmath
 import scipy.sparse as sp
 import scipy.linalg as sl
 from scipy.fft import fft, ifft, rfft, fftfreq
+import matplotlib
 import matplotlib.pylab as plt
 import QCcorrelations as QC
 import pandas
@@ -547,16 +548,20 @@ class Plots(Operations):
         #axA.set_xlim(0,4)
         print(self.t_ps[np.arange(st, en, itvl)])
         axA.plot(self.t_ps[np.arange(st, en, itvl)], self.x2[np.arange(st, en, itvl)], label=r'$\langle X_2\rangle$')
-        axA.plot(self.t_ps[np.arange(st, en, itvl)], self.x1[np.arange(st, en, itvl)], label=r'$\langle X_1\rangle$')
+        axA.plot(self.t_ps[np.arange(st, en, itvl)], self.x1[np.arange(st, en, itvl)], '-', label=r'$\langle X_1\rangle$')
+        
+        
         axA.set_ylabel('$<X_i>$', fontsize =13)
         axA.set_xlabel('Time (ps)', fontsize =13)
+        axA.grid(axis='x')
+        axA.set_xlim(0,4)
 
         axB = axA.twinx()
         axB.set_ylabel('$C_{<X_1><X_2>}$',fontsize=13)
         axB.plot(self.t_ps[np.arange(st, en, itvl)], self.c_X12[np.arange(st, en, itvl)], 'r-o', markevery=0.05, markersize=5,
                  label=r'$C_{\langle x_1\rangle\langle x_2\rangle}$')
         
-        fig.legend(loc=(0.6,0.6))
+        fig.legend(loc=(0.6,0.2))
         fig.show()
 
         if(self.save_plots == True):
@@ -613,10 +618,16 @@ class Plots(Operations):
 
         fig = plt.figure(2)
         axA = fig.add_subplot(111)
-        axA.set_xlabel('Time ($ps$)', fontsize =13)
-        axA.set_ylabel('$|X_{i,jk}| ||\\rho_{jk}(t)||$', fontsize =13)
+        # axA.set_xlabel('Time ($ps$)', fontsize =13)
+        # axA.set_ylabel('$|X_{i,kj}| ||\\rho_{jk}(t)||$', fontsize =13)
         axA.grid()
+        axA.set_xlim(0,4)
+        # plt.rc('xtick', labelsize=20)
+        plt.rc('ytick', labelsize=20) 
+        plt.rc('xtick', labelsize=20) 
 
+        plt.xticks(fontsize= 15)
+        plt.yticks(fontsize= 15)
         st = 0000
         en = self.steps -200
         itvl = 3 
@@ -625,6 +636,10 @@ class Plots(Operations):
         omegaarray = np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2) - np.repeat(vals, 2 * N ** 2).reshape(2 * N ** 2, 2 * N ** 2).transpose()
         oX1_kj = np.zeros(len(j_k))
         oX2_kj = np.zeros(len(j_k))
+
+        pos_cohs = np.zeros(en)
+
+        neg_cohs = np.zeros(en)
 
         for i in range(len(j_k)):
             j = j_k[i][0]
@@ -638,14 +653,25 @@ class Plots(Operations):
             
             #+ve sync
             if (oX1_kj[i] * oX2_kj[i] > 0):
-                plt.plot(self.t_ps[st:en], np.abs(oX1_kj[i]) * np.abs(psi_jk[st:en]), ls='-', label="$\Omega_{" +str(j)+str(k) +"} =$" + str(f)) 
+                plt.plot(self.t_ps[st:en], np.abs(psi_jk[st:en]) * np.abs(oX1_kj[i]) , ls='-', label=r"$|\psi_{" +str(j)+r"}\rangle\langle\psi_{"+str(k) +r"}|$") 
+                pos_cohs += np.abs(psi_jk[st:en] * np.abs(oX1_kj[i]))
 
             else:
-                plt.plot(self.t_ps[st:en], np.abs(oX1_kj[i]) * np.abs(psi_jk[st:en]), ls='--', label="$\Omega_{" +str(j)+str(k) +"} =$" + str(f)) 
+                plt.plot(self.t_ps[st:en], np.abs(psi_jk[st:en]) * np.abs(oX1_kj[i]), ls='--', label=r"$|\psi_{" +str(j)+r"}\rangle\langle\psi_{"+str(k) +r"}|$")
+                neg_cohs += np.abs(psi_jk[st:en] * np.abs(oX1_kj[i]))
+            
 
-        # plt.xlim(0,2.5)
-        # plt.ylim(0,0.05)
-        plt.legend(bbox_to_anchor=([0.5, 1]), title="Oscillatory Frequencies / $cm^-1$", fontsize =13)
+        # plt.xlim(3.5,4)
+        # plt.ylim(0,0.004)
+        plt.legend(bbox_to_anchor=([0.5, 1]), title="Coherences", fontsize =13)
+
+        # fig2 = plt.figure(255)
+        # axA2 = fig.add_subplot(111)
+        # plt.plot(self.t_ps[st:en], neg_cohs, ls='--', label="Negative")
+        # plt.plot(self.t_ps[st:en], pos_cohs, label ="Positive")
+        # plt.xlim(0,4)
+        # #plt.ylim(0.002,0.004)
+        # plt.legend(fontsize=20)
 
         if(self.save_plots == True):
             fig.savefig('Eigcoherences_ZOOM.png',bbox_inches='tight',dpi=600)
@@ -765,21 +791,39 @@ class Plots(Operations):
         ob_cm = (1/np.sqrt(2))*(ob1 + ob2).tocsr()
         ob_rd = (1/np.sqrt(2))*(ob1 - ob2).tocsr()
 
+        oE1 = self.exciton_operator(1, 1)
+        oE2 = self.exciton_operator(2, 2)
+        oE12 = self.exciton_operator(1, 2)
+        oE21 = self.exciton_operator(2, 1)
+        sigmaz = oE2 - oE1
+        sigmax = oE12 + oE21
+
+        ex_coupling = (np.sin(2*self.theta) * sigmax +  np.cos(2*self.theta) * sigmaz)
+        ex_coupling = sp.kron(ex_coupling, sp.kron(Iv,Iv))
+        ex_evol = self.oper_evol(ex_coupling, self.rhoT, self.t, self.tmax_ps)
+
+
         #POPULATIONS
-        cm = self.oper_evol(ob_cm.getH()*ob_cm,self.rhoT, self.t, self.tmax_ps)
-        rd = self.oper_evol(ob_rd.getH()*ob_rd,self.rhoT, self.t, self.tmax_ps)
+        # cm = self.oper_evol(ob1.getH()*ob1 ,self.rhoT, self.t, self.tmax_ps)#self.omega*(ob_cm.getH()*ob_cm) + (self.g1/np.sqrt(2))*  + (self.g1/np.sqrt(2))*(ob_cm.getH() + ob_cm)
+        # rd = self.oper_evol(ob2.getH()*ob2 ,self.rhoT, self.t, self.tmax_ps)#self.omega*(ob_rd.getH()*ob_rd) -(self.g1/np.sqrt(2))* ex_coupling *  -(self.g1/np.sqrt(2))* ex_coupling *(ob_rd.getH()+ob_rd)
+
+        cm = self.oper_evol(ob_cm.getH() + ob_cm ,self.rhoT, self.t, self.tmax_ps)#self.omega*(ob_cm.getH()*ob_cm) + (self.g1/np.sqrt(2))*  + (self.g1/np.sqrt(2))*(ob_cm.getH() + ob_cm)
+        rd = self.oper_evol(ob_rd.getH() + ob_rd ,self.rhoT, self.t, self.tmax_ps)#self.omega*(ob_rd.getH()*ob_rd) -(self.g1/np.sqrt(2))* ex_coupling *  -(self.g1/np.sqrt(2))* ex_coupling *(ob_rd.getH()+ob_rd)
 
         st = 0000
         en = self.steps -200
     
         fig = plt.figure(900)
         axA = fig.add_subplot(111)
-        axA.plot(self.t_ps[0:en], cm[0:en], label=r'$b^{\dagger}_{cm}b_{cm}$')
-        axA.plot(self.t_ps[0:en], rd[0:en], label=r'$b^{\dagger}_{rd}b_{rd}$')
+
+        axA.plot(self.t_ps[0:en], cm[0:en], label=r'$<(b^{\dagger}_{cm}+b_{cm})>$')
+        axA.plot(self.t_ps[0:en], rd[0:en], label=r'$<(b^{\dagger}_{rd}+b_{rd})>$') 
+        # axA.plot(self.t_ps[0:en], ex_evol[0:en], label=r'$EX EVOL$') 
 
         fig.legend(loc=(0.6,0.6), fontsize =13)
         axA.set_xlabel('Time ($ps$)', fontsize =13)
         axA.grid(axis='x')
+        plt.xlim(0,4)
         fig.show()
         if(self.save_plots == True):
             fig.savefig('b_ops_evol.png',bbox_inches='tight',dpi=600)
@@ -806,10 +850,10 @@ class Plots(Operations):
         maxstep = np.shape(self.rhoT)[0] #np.int(np.round(12*dtperps))
         N= self.n_cutoff
                             #maxstep
-        for i in np.arange(0,maxstep,100):
+        for i in np.arange(0,maxstep,500):
 
             test_matrix = self.rhoT[i,:].reshape(np.shape(P0)[0],np.shape(P0)[1])
-            quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 1, 2)
+            quantum_mutual_info, classical_info, quantum_discord = QC.correlations(test_matrix, 2, N, N, 0, 1)
             q_mutual.append(quantum_mutual_info)
             c_info.append(classical_info)
             q_discord.append(quantum_discord)
@@ -833,9 +877,9 @@ class Plots(Operations):
 
         itvl = 5
         axA = fig.add_subplot(111)
-        axA.plot(corr_times,c_info,color='k',label=r'Classical Info')
+        axA.plot(corr_times,c_info,color='k',label=r'Classical Information')
         #axA.plot(corr_times,q_mutual,label=r'Q Mutual Info')
-        axA.plot(corr_times,q_discord, color='C0', label=r'Discord')
+        axA.plot(corr_times,q_discord, color='C2', label=r'Quantum Discord')
         axA.set_xlabel('Time (ps)', fontsize =13)
         axA.set_xlim([0,4])
         axA.set_ylim([0,0.4])
@@ -885,6 +929,126 @@ class Plots(Operations):
         print( "self.t_cm= ", self.t_cm)
 
         print("(self.H).shape[1] = ", (self.H).shape[1])
+
+    def hilbert_space_plotter(self):
+        
+
+        Iv = self.identity_vib()
+        Iv_dense =Iv.todense()
+        Ie = sp.eye(2, 2).tocsr()
+        I = sp.kron(Ie,sp.kron(Iv,Iv)).todense()
+        
+
+        b = self.destroy()
+        ob1 = sp.kron(b, Iv).tocsr()
+        ob2 = sp.kron(Iv, b).tocsr()
+        ob_cm = (1/np.sqrt(2))*(ob1 + ob2).tocsr()
+        ob_rd = (1/np.sqrt(2))*(ob1 - ob2).tocsr()
+
+        brdbrd = (ob_rd.getH() * ob_rd).todense() #sp.kron(Ie,
+        bcmbcm = (ob_cm.getH() * ob_cm).todense() #sp.kron(Ie,
+
+        
+
+        fig1, ax1 = plt.subplots(1,1)
+        img = ax1.imshow(I,cmap='rainbow')
+        cb2 = fig1.colorbar(img)
+        plt.title("I")
+        #cb2.set_label(r"Synchronisation Time $(ps)$")
+
+        fig3, ax3 = plt.subplots(1,1)
+        img = ax3.imshow(bcmbcm,cmap='rainbow')
+        cb2 = fig3.colorbar(img)
+        plt.title(r"$b_{cm}^\dag b_{cm}$")
+
+        print(I.shape)
+
+        rho0 = self.rhoT[3000,:]
+        rho0 = rho0.reshape(I.shape[0], I.shape[0])
+        fig4, ax4 = plt.subplots(1,1)
+        img = ax4.imshow(np.abs(rho0),cmap='rainbow')
+        cb2 = fig4.colorbar(img)
+        plt.title(r"$\rho_0$")
+        
+        #FULL
+        fig2, ax2 = plt.subplots(1,1)
+        img = ax2.imshow(brdbrd,cmap='rainbow')
+        cb2 = fig2.colorbar(img)
+        plt.title(r"$b_{rd}^\dag b_{rd}$")
+
+        print(brdbrd.shape)
+        print(brdbrd[0,5])
+        print(len(brdbrd[:,0]))
+        brdbrd_ones = np.zeros((len(brdbrd[:,0]), len(brdbrd[:,0])))
+        bcmbcm_ones = np.zeros((len(bcmbcm[:,0]), len(bcmbcm[:,0])))
+
+        fig5, ax5 = plt.subplots(1,1)
+        img = ax5.imshow(Iv_dense,cmap='rainbow')
+        cb5 = fig5.colorbar(img)
+        plt.title("I")
+
+        fig6, ax6 = plt.subplots(1,1)
+        img = ax6.imshow(ob_rd.todense(),cmap='rainbow')
+        cb6 = fig6.colorbar(img)
+        plt.title(r"$b_{rd}$")
+
+        fig7, ax7 = plt.subplots(1,1)
+        img = ax7.imshow(ob_cm.todense(),cmap='rainbow')
+        cb7 = fig7.colorbar(img)
+        plt.title(r"$b_{cm}$")
+
+        fig8, ax8 = plt.subplots(1,1)
+        img = ax8.imshow(ob1.todense(),cmap='rainbow')
+        cb8 = fig8.colorbar(img)
+        plt.title(r"$b_{1}$")
+
+        fig9, ax9 = plt.subplots(1,1)
+        img = ax9.imshow(ob2.todense(),cmap='rainbow')
+        cb9 = fig9.colorbar(img)
+        plt.title(r"$b_{2}$")
+
+
+
+        for i in range(len(brdbrd[:,0])):
+            for j in range(len(brdbrd[:,0])):
+                if(np.abs(brdbrd[i,j]) > 0):
+                    brdbrd_ones[i,j] = 1
+
+        fig10, ax10 = plt.subplots(1,1)
+        img = ax10.imshow(brdbrd_ones,cmap='rainbow')
+        cb10 = fig10.colorbar(img)
+        plt.title(r"$b_{rd}^\dag b_{rd}$ ONES")
+
+
+        for i in range(len(bcmbcm[:,0])):
+            for j in range(len(bcmbcm[:,0])):
+                if(np.abs(bcmbcm[i,j]) > 0):
+                    bcmbcm_ones[i,j] = 1
+
+        fig11, ax11 = plt.subplots(1,1)
+        img = ax11.imshow(bcmbcm_ones,cmap='rainbow')
+        cb11 = fig11.colorbar(img)
+        plt.title(r"$b_{cm}^\dag b_{cm}$ ONES")
+
+        fig12, ax12 = plt.subplots(1,1)
+        img = ax12.imshow(np.abs(self.collective_hamiltonian().todense()), cmap = 'rainbow')
+        cb12 = fig12.colorbar(img)
+        plt.title("Hamiltonian")
+        
+        fig13, ax13 = plt.subplots(1,1)
+        img = ax13.imshow(np.abs(self.collective_liouvillian().todense()), cmap = 'rainbow')
+        cb13 = fig13.colorbar(img)
+        plt.title("Liouvillian")
+
+
+        
+
+
+
+
+
+
+
 
 class MultiPlots(Operations):
     """Functions for plotting multiple evolutions for different parameter regimes on the same axes"""
@@ -949,6 +1113,7 @@ class MultiPlots(Operations):
         fig.legend(bbox_to_anchor=([0.45, 0.6]),loc ='center left')
         fig.show()
         ax.set_xlim(0,2)
+        ax.grid(axis='x')
         if(self.save_plots == True):
             fig.savefig('Multi_Sync 0.1,1.png',bbox_inches='tight',dpi=600)
 
@@ -958,9 +1123,11 @@ class MultiPlots(Operations):
         st = 0000
         itvl = 5
 
-        ax = fig.add_subplot(111)
+        # ax = fig.add_subplot(111)
 
-        ax.set_xlabel('Time (ps)', fontsize =13)
+        # ax.set_xlabel('Time (ps)', fontsize =13)
+        transfers = np.zeros(len(self.th_rates)*len(self.el_rates))
+        n =0 
         #ax.set_ylabel("$|E_1\rangle\langle E_1 |$", fontsize=13)
 
         for i in range( len(self.th_rates)):
@@ -978,13 +1145,29 @@ class MultiPlots(Operations):
                 oE1mImI = sp.kron(oE1, sp.kron(self.Iv, self.Iv)).tocsr()
 
                 ex1 = self.oper_evol(oE1mImI,rhoT, t, self.tmax_ps)
+                transfers[n] = ex1[en]
+                n+=1
     
-                ax.plot(self.t_ps[0:en], ex1[0:en], label="$\Gamma_{deph} = [" +str(self.el_rates[j])+"ps]^{-1}, \Gamma_{th} = [" +str(self.th_rates[i])+ "ps]^{-1}$")
+                #ax.plot(self.t_ps[0:en], ex1[0:en], label="$\Gamma_{deph} = [" +str(self.el_rates[j])+"ps]^{-1}, \Gamma_{th} = [" +str(self.th_rates[i])+ "ps]^{-1}$")
         
-        ax.grid(axis='x')
-        ax.set_xlim(0,2)
-        fig.legend(bbox_to_anchor=([0.45, 0.45]), loc = 'upper left')
-        fig.show()
+        fig, ax = plt.subplots(1,1)
+        #plt.title('Energy Transfer')
+        plt.xlabel("$\Gamma_{th}$", fontsize =13)
+        plt.ylabel("$\Gamma_{deph}$", fontsize =13)
+        transfer_square= transfers.reshape(len(self.th_rates),len(self.el_rates), order='F')
+        inv = self.cmap_map(lambda x: 1-x, matplotlib.cm.PRGn)
+        img = ax.imshow(transfer_square,extent=[0.025,1.025,0.025,1.025], cmap='Greens')
+        ax.set_xticks(self.th_rates[1::2])
+        ax.set_yticks(self.el_rates[::2])
+        cb2 = fig.colorbar(img)
+        #cb2.set_label(r"$|E_1\rangle\langleE_1|$ Population")
+        if(self.save_plots == True):
+            fig.savefig('Populations Heatmap.png',bbox_inches='tight',dpi=600)
+
+        # ax.grid(axis='x')
+        # ax.set_xlim(0,2)
+        # fig.legend(bbox_to_anchor=([0.45, 0.45]), loc = 'upper left')
+        # fig.show()
         if(self.save_plots == True):
             fig.savefig('Multi_ET 0.1,1.png',bbox_inches='tight',dpi=600)
 
@@ -1030,200 +1213,470 @@ class MultiPlots(Operations):
             fig.savefig('1,3 coherence 0.1,0.5,1.png',bbox_inches='tight',dpi=600)
         fig.show()
 
+    def cmap_map(self,function, cmap):
+        """ Applies function (which should operate on vectors of shape 3: [r, g, b]), on colormap cmap.
+        This routine will break any discontinuous points in a colormap.
+        """
+        cdict = cmap._segmentdata
+        step_dict = {}
+        # Firt get the list of points where the segments start or end
+        for key in ('red', 'green', 'blue'):
+            step_dict[key] = list(map(lambda x: x[0], cdict[key]))
+        step_list = sum(step_dict.values(), [])
+        step_list = np.array(list(set(step_list)))
+        # Then compute the LUT, and apply the function to the LUT
+        reduced_cmap = lambda step : np.array(cmap(step)[0:3])
+        old_LUT = np.array(list(map(reduced_cmap, step_list)))
+        new_LUT = np.array(list(map(function, old_LUT)))
+        # Now try to make a minimal segment definition of the new LUT
+        cdict = {}
+        for i, key in enumerate(['red','green','blue']):
+            this_cdict = {}
+            for j, step in enumerate(step_list):
+                if step in step_dict[key]:
+                    this_cdict[step] = new_LUT[j, i]
+                elif new_LUT[j,i] != old_LUT[j, i]:
+                    this_cdict[step] = new_LUT[j, i]
+            colorvector = list(map(lambda x: x + (x[1], ), this_cdict.items()))
+            colorvector.sort()
+            cdict[key] = colorvector
+
+        return matplotlib.colors.LinearSegmentedColormap('colormap',cdict,1024)
+
+    def eigs_nocoupling(self):
+        th_data = np.zeros(len(self.th_rates)*len(self.el_rates))
+        el_data = np.zeros(len(self.th_rates)*len(self.el_rates))
+        eigval_differences = np.zeros(len(self.th_rates)*len(self.el_rates))
+        run = 0
+
+        for i in range( len(self.th_rates)):
+            for j in range(len(self.el_rates)):
+
+                th_data[run] = self.th_rates[i]
+                el_data[run] = self.el_rates[j]
+                count1 = time.time()
+
+                DimerDetune.__init__(self, self.th_rates[i], self.el_rates[j], self.phi1, self.phi2, self.detuning,  self.n_cutoff, self.temperature, self.tmax_ps)
+           
+                vals, eigs = np.linalg.eig(self.collective_liouvillian().todense())
+                print(eigs.shape)
+                Iv = self.identity_vib()
+                Ie = sp.eye(2, 2).tocsr()
+                b = self.destroy()
+                ob1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
+                ob2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
+                ob_cm = (1/np.sqrt(2))*(ob1 + ob2).tocsr()
+                ob_rd = (1/np.sqrt(2))*(ob1 - ob2).tocsr()
+
+                k = np.argmin(np.abs(np.imag(vals)))
+                vals2 = np.delete(vals, k)
+                eigs2 = np.delete(eigs, [k],1)
+
+                l = np.argmin(np.abs(np.imag(vals2)))
+                if(vals2[l] == vals[k] or np.imag(vals2[l] - vals[k])<0.01):
+                    vals2 = np.delete(vals2, l)
+                    eigs2 = np.delete(eigs2, [l],1)
+                    l = np.argmin(np.abs(np.imag(vals2)))
+                print("vals[k] = ", vals[k])
+                print("vals2[l] = ", vals2[l])
+                eigval_differences[run] = np.abs(vals[k]) - np.abs(vals2[l])
+                run +=1
+
+        fig, ax = plt.subplots(1,1)
+        plt.title('Eigenvalue Differences')
+        plt.xlabel("$\Gamma_{th} / [ps]^{-1}$", fontsize =13)
+        plt.ylabel("$\Gamma_{deph} / [ps]^{-1}$", fontsize =13)
+        eigval_square = eigval_differences.reshape(len(self.th_rates),len(self.el_rates), order='F')
+        inv = self.cmap_map(lambda x: 1-x, matplotlib.cm.PRGn)
+        img = ax.imshow(eigval_square,extent=[0.025,1.025,0.025,1.025], cmap='Greens')
+        ax.set_xticks(self.th_rates[1::2])
+        ax.set_yticks(self.el_rates[::2])
+        cb2 = fig.colorbar(img)
+        cb2.set_label(r"Eigenvalue Difference")
+        if(self.save_plots == True):
+            fig.savefig('eigvals_heatmap.png',bbox_inches='tight',dpi=600)
+
+                
+
     def liouv_eigs(self):
         """find equilibrium state- plot evolutions
         DEFINED SEPERATE RHOT EVOLUTION HERE"""
         th_data = np.zeros(len(self.th_rates)*len(self.el_rates))
         el_data = np.zeros(len(self.th_rates)*len(self.el_rates))
         eigval_differences = np.zeros(len(self.th_rates)*len(self.el_rates))
-        n = 0
+        run = 0
 
+        for i in range( len(self.th_rates)):
+            for j in range(len(self.el_rates)):
+
+                th_data[run] = self.th_rates[i]
+                el_data[run] = self.el_rates[j]
+                count1 = time.time()
+
+                DimerDetune.__init__(self, self.th_rates[i], self.el_rates[j], self.phi1, self.phi2, self.detuning,  self.n_cutoff, self.temperature, self.tmax_ps)
+           
+                vals, eigs = np.linalg.eig(self.collective_liouvillian().todense())
+                print(eigs.shape)
+                Iv = self.identity_vib()
+                Ie = sp.eye(2, 2).tocsr()
+                b = self.destroy()
+                ob1 = sp.kron(Ie, sp.kron(b, Iv)).tocsr()
+                ob2 = sp.kron(Ie, sp.kron(Iv, b)).tocsr()
+                ob_cm = (1/np.sqrt(2))*(ob1 + ob2).tocsr()
+                ob_rd = (1/np.sqrt(2))*(ob1 - ob2).tocsr()
+
+                # eigID = 0
+                # val = 50
+
+                #no. opp in full H space
+                brdbrd = (ob_rd.getH() * ob_rd).todense()
+                brdbrd_ones = np.zeros((len(brdbrd[:,0]), len(brdbrd[:,0])))
+                
+                # #get rid of zero real value
+                # for y in range(len(vals)):
+                #     if(np.real(vals[y]) < 0.000001):
+                #         vals = np.delete(vals, y)
+
+
+                
+                for g in range(len(brdbrd[:,0])):
+                    for h in range(len(brdbrd[:,0])):
+                        if(np.abs(brdbrd[g,h]) > 0):
+                            brdbrd_ones[g,h] = 1
+                            
+                
+              
+                
+                N=np.int(np.sqrt(np.shape(eigs[1])[1]))
+                print("N= ", N)
+
+                
+                print("np.amin(vals) = ", np.amin(np.abs(np.imag(vals))))
+                #lowest eigenvalue
+                k = np.argmin(np.abs(np.real(vals)))
+                print("vals[k] = ", vals[k])
+                if(np.abs(np.real(vals[k]))< 0.000001):
+                    vals = np.delete(vals,k)
+                    eigs = np.delete(eigs, [k],1)
+                    k = np.argmin(np.abs(np.real(vals)))
+                #     zero = True
+                #     while(zero == True):
+                #         vals = np.delete(vals,k)
+                #         eigs = np.delete(eigs, [k],1)
+                #         k = np.argmin(np.abs(np.real(vals)))
+                #         if(np.abs(np.imag(vals[k])) >0.000001):
+                #             zero=False
+
+                    
+                #find trace of operator dot rho 
+                #k_coupling = np.trace((ob_rd).dot(eigs[k].reshape(N, N)))
+                eigs_square = np.asarray(eigs[:,k].reshape(N, N))
+                k_coupling = 0
+                # for b in range(len(brdbrd[:,0])):
+                #     for d in range(len(brdbrd[:,0])):
+                        #k_coupling += brdbrd_ones[b,d] * np.abs(eigs_square[b,d])
+                k_coupling = np.trace(brdbrd_ones.dot(eigs[:,k].reshape(N, N)))
+                # figk, axk = plt.subplots(1,1)
+                # img = axk.imshow(np.abs(eigs_square),cmap='rainbow')
+                # cbk = figk.colorbar(img)
+                # plt.title(r"k")
+                
+                # print(eigs[:,k])
+
+                vals2 = np.delete(vals, k)
+                eigs2 = np.delete(eigs, [k],1)
+
+                
+                l_coupling = 0
+
+                l = np.argmin(np.abs(np.real(vals2)))
+                print("l = ", l)
+
+                # if(np.abs(np.imag(vals2[l]))< 0.000001):
+                #     zero = True
+                #     while(zero == True):
+                #         vals2 = np.delete(vals2,l)
+                #         eigs2 = np.delete(eigs2, [l],1)
+                #         l = np.argmin(np.abs(np.real(vals2)))
+                #         print("l = ", l)
+                #         print("vals2[l] = ", vals2[l])
+
+                #         if(np.abs(np.imag(vals2[l])) >0.000001):
+                #             zero=False
+
+                if(vals2[l] == vals[k] or np.real(vals2[l] - vals[k])<0.01):
+                    vals2 = np.delete(vals2, l)
+                    eigs2 = np.delete(eigs2, [l],1)
+
+                    l =np.argmin(np.abs(np.real(vals2)))
+                    #print("l = ", l)
+                    #print(eigs2[:,l])
+                    eigs_square = np.asarray(eigs2[:,l].reshape(N, N))
+                    for b in range(len(brdbrd[:,0])):
+                        for d in range(len(brdbrd[:,0])):
+                            #l_coupling += brdbrd_ones[b,d] * np.abs(eigs_square[b,d])
+                            l_coupling = np.trace(brdbrd_ones.dot(eigs2[:,l].reshape(N, N)))
+                else:
+                    eigs_square = np.asarray(eigs2[:,l].reshape(N, N))
+
+                    # for b in range(len(brdbrd[:,0])):
+                    #     for d in range(len(brdbrd[:,0])):
+                            #l_coupling += brdbrd_ones[b,d] * np.abs(eigs_square[b,d])
+                l_coupling = np.trace(brdbrd_ones.dot(eigs2[:,l].reshape(N, N)))
+
+                # figl, axl = plt.subplots(1,1)
+                # img = axl.imshow(np.abs(eigs_square),cmap='rainbow')
+                # cbk = figl.colorbar(img)
+                # plt.title(r"l")
+
+                print("vals2[l]=", vals2[l])
+                
+                # #second lowest eigenvalue
+                # vals2 = np.delete(vals,k)
+                # l = np.argmin(np.abs(vals2))
+                # #l_coupling = np.trace((ob_rd).dot(eigs[l].reshape(N, N)))
+                # l_coupling = np.trace(brdbrd_ones.dot(eigs[l].reshape(N, N)))
+
+
+                #third lowest eigenvalue
+                vals3 = np.delete(vals2, l)
+                eigs3 = np.delete(eigs2, [l],1)
+                m_coupling = 0
+
+                m = np.argmin(np.abs(np.real(vals3)))
+                # if(np.abs(np.imag(vals3[m]))< 0.000001):
+                #     zero = True
+                #     while(zero == True):
+                #         vals3 = np.delete(vals3,m)
+                #         eigs3 = np.delete(eigs3, [m],1)
+                #         m = np.argmin(np.abs(np.real(vals3)))
+                #         if(np.abs(np.imag(vals3[m])) >0.000001):
+                #             zero=False
+                
+                print("m = ", m)
+                print("vals3[m] = ", vals3[m])
+                print("vals2[l] = ", vals2[l])
+                print("vals3[l] =",  vals3[l])
+                if(vals3[m] == vals2[l] or np.real(vals3[m] - vals2[l])<0.01):
+                    vals3 = np.delete(vals3, m)
+                    eigs3 = np.delete(eigs3, [m],1)
+
+                    m =np.argmin(np.abs(np.real(vals3)))
+                    print("m = ", m)
+                    eigs_square = np.asarray(eigs3[:,m].reshape(N, N))
+                    for b in range(len(brdbrd[:,0])):
+                        for d in range(len(brdbrd[:,0])):
+                            #m_coupling += brdbrd_ones[b,d] * np.abs(eigs_square[b,d])
+                            m_coupling = np.trace(brdbrd_ones.dot(eigs3[:,m].reshape(N, N)))
+                    
+                else:
+                    eigs_square = np.asarray(eigs3[:,m].reshape(N, N))
+                    # for b in range(len(brdbrd[:,0])):
+                    #     for d in range(len(brdbrd[:,0])):
+                            #m_coupling += brdbrd_ones[b,d] * np.abs(eigs_square[b,d])
+                m_coupling = np.trace(brdbrd_ones.dot(eigs3[:,m].reshape(N, N)))
+                #m_coupling = np.trace((ob_rd).dot(eigs[m].reshape(N, N)))
+                # figm, axm = plt.subplots(1,1)
+                # img = axm.imshow(np.abs(eigs_square),cmap='rainbow')
+                # cbk = figm.colorbar(img)
+                # plt.title(r"m")
+                print("vals[k] =",  vals[k])
+                print("vals2[l] = ", vals2[l])
+                print("vals3[m] = ", vals3[m])
+                
+
+                # vals4 = np.delete(vals3,m)
+                # eigs4 = np.delete(eigs3, [m],1)
+
+                # n = np.argmin(np.abs(vals4))
+                # n_coupling = 0
+                # # print("m = ", m)
+                # # print("vals3[m] = ", vals3[m])
+                # # print("vals2[l] = ", vals2[l])
+                # # print("vals3[l] =",  vals3[l])
+                # if(vals4[n] == vals3[m] or np.real(vals4[n] - vals3[m])<0.01):
+                #     vals4 = np.delete(vals4, n)
+                #     eigs4 = np.delete(eigs4, [n],1)
+
+                #     n =np.argmin(np.abs(vals4))
+                #     print("n = ", n)
+                #     eigs_square = np.asarray(eigs4[:,n].reshape(N, N))
+                #     for b in range(len(brdbrd[:,0])):
+                #         for d in range(len(brdbrd[:,0])):
+                #             n_coupling += brdbrd_ones[b,d] * np.abs(eigs_square[b,d])
+                #     #m_coupling = np.trace(brdbrd_ones.dot(eig3s[:,m].reshape(N, N)))
+                    
+                # else:
+                #     eigs_square = np.asarray(eigs4[:,n].reshape(N, N))
+                #     for b in range(len(brdbrd[:,0])):
+                #         for d in range(len(brdbrd[:,0])):
+                #             m_coupling += brdbrd_ones[b,d] * np.abs(eigs_square[b,d])
+
+                
+
+                #sort couplings by absolute value
+                small_vals = np.asarray([vals[k],vals2[l],vals3[m]])
+                #for x in range(len(small_vals))
+                print("small_vals=", small_vals)
+                sort_smallvals = sorted(np.real(small_vals), key=abs)
+                print ("sort_smallvals= ", sort_smallvals)
+                couplings = np.asarray([k_coupling, l_coupling, m_coupling])
+                sort_couplings = sorted(couplings, key=abs)
+                print("couplings: ", couplings)
+                print("sort couplings: ", sort_couplings)
+
+
+
+                #find real part of eigenvalue corresponding to second lowest coupling
+                l1= 0 
+                if(sort_couplings[1] == k_coupling):
+                    l1 = np.real(vals[k])
+                elif(sort_couplings[1] == l_coupling): 
+                    l1 = np.real(vals2[l])
+                elif(sort_couplings[1] == m_coupling): 
+                    l1 = np.real(vals3[m])
+                # elif(sort_couplings[2] == n_coupling): 
+                #     l1 = np.abs(vals3[n])
+
+
+                #real part of eigenvalue corresponsing to highest coupling
+                l2= 0 
+                if(sort_couplings[2] == k_coupling):
+                    l2 = np.real(vals[k])
+                elif(sort_couplings[2] == l_coupling): 
+                    l2 = np.real(vals2[l])
+                elif(sort_couplings[2] == m_coupling): 
+                    l2 = np.real(vals3[m])
+                # elif(sort_couplings[3] == n_coupling): 
+                #     l2 = np.abs(vals4[n])
+
+                #sort 2 eigvals by abs
+                sorted_l12 = sorted([l1,l2], key=abs)
+                print(sorted_l12)
+                #smallest vs largest
+                eigval_differences[run] = np.abs(np.abs(sorted_l12[0]) - np.abs(sorted_l12[1]))
+                run+=1
+                # print("eig_difference = ", eig_difference)
+                count2 = time.time()
+                print('Difference Time =', count2 - count1)
+
+        # plt.figure()
+        # plt.title('Eigenvalue differences')
+        # plt.xlabel("$\Gamma_{th}$", fontsize =13)
+        # plt.ylabel("$\Gamma_{deph}$", fontsize =13)
+        # # im =plt.imshow(, cmap = 'rainbow')
+        # print(th_data)
+        # print(el_data)
+        # print(eigval_differences)
+        # plt.scatter(th_data,el_data, c=eigval_differences, s =50)
+        # cb = plt.colorbar()
+        # cb.set_label(r"$\lambda_2^R - \lambda_1^R$")
+
+
+        fig, ax = plt.subplots(1,1)
+        plt.title('Eigenvalue Differences')
+        plt.xlabel("$\Gamma_{th}$", fontsize =13)
+        plt.ylabel("$\Gamma_{deph}$", fontsize =13)
+        eigval_square = eigval_differences.reshape(len(self.th_rates),len(self.el_rates), order='F')
+        inv = self.cmap_map(lambda x: 1-x, matplotlib.cm.PRGn)
+        img = ax.imshow(eigval_square,extent=[0.025,1.025,0.025,1.025], cmap='Greens')
+        ax.set_xticks(self.th_rates[1::2])
+        ax.set_yticks(self.el_rates[::2])
+        cb2 = fig.colorbar(img)
+        cb2.set_label(r"$\lambda_2^R - \lambda_1^R$")
+        if(self.save_plots == True):
+            fig.savefig('eigvals_heatmap.png',bbox_inches='tight',dpi=600)
+
+    
+    
+
+    def get_sync_times(self):
+        th_data = np.zeros(len(self.th_rates)*len(self.el_rates))
+        el_data = np.zeros(len(self.th_rates)*len(self.el_rates))
+        sync_times = np.zeros(len(self.th_rates)*len(self.el_rates))
+        n = 0 
 
         for i in range( len(self.th_rates)):
             for j in range(len(self.el_rates)):
 
                 th_data[n] = self.th_rates[i]
                 el_data[n] = self.el_rates[j]
-                count1 = time.time()
-
+        
                 DimerDetune.__init__(self, self.th_rates[i], self.el_rates[j], self.phi1, self.phi2, self.detuning,  self.n_cutoff, self.temperature, self.tmax_ps)
-                # rhoT , t  = self.time_evol_me(self.tmax_ps)   
-                # self.t_cm = t / (2 * constant.pi)
-                # self.tmax = self.tmax_ps * 100 * constant.c * 2 * constant.pi * 1e-12  
-                # self.tmax_cm = self.tmax / (2 * constant.pi)
-                # self.t_ps = (self.t_cm * 1e12) / (100 * constant.c)
+                self.rhoT , self.t  = self.time_evol_me(self.tmax_ps)
 
-                vals, eigs = np.linalg.eig(self.collective_liouvillian().todense())
+                self.t_cm = self.t / (2 * constant.pi)
+                self.t_ps = (self.t_cm * 1e12) / (100 * constant.c)
 
-                eigID = 0
-                val = 50
-                lowest_eigID = 0
-                second_lowest_eigID = 0
-                third_lowest_eigID = 0
-                lowest_X1coupling = 0
-                second_X1coupling = 0
-                third_X1coupling = 0
-                lowest_X2coupling = 0
-                second_X2coupling = 0
-                third_X2coupling = 0
+                self.x1 = self.oper_evol(self.oX1,self.rhoT, self.t, self.tmax_ps)
+                self.x2 = self.oper_evol(self.oX2,self.rhoT, self.t, self.tmax_ps) 
 
-                
-                N=np.int(np.sqrt(np.shape(eigs[1])[1]))
-                print("N= ", N)
+                self.elta = np.int(np.round(((2 * constant.pi) / self.omega) / self.dt))
+                c_X12 = self.corrfunc(self.x1, self.x2, self.elta)
+                # print(len(c_X12))
+                C=0.5
+                C_new =0.5
+                nan_time = np.nan
+                sync_times[n] = nan_time
+                sync_reached =False
+                for m in range(len(c_X12[::500])-1):
+                    #SORT THIS CODE OUT
+                    #print("len(self.c_X12[::200]) = ", len(self.c_X12[::200]))
+                    # print(m)
+                    C_new = c_X12[500*m]
+                    # print(c_X12[500*m])
+                    C_new_2 = c_X12[500*m+400]
+                    
+                    #TEST FOR SYNCHRONISATION
+                    if((np.abs(np.abs(np.real(C_new)/np.real(C)) -1))< 0.005 and np.abs(np.abs(np.real(C)) - 1)< 0.005 and np.abs(np.abs(np.real(C_new_2)/np.real(C)) -1)< 0.005 and sync_reached == False):
+                        # print("C = ", C)
+                        # print("C_new = ", C_new)
+                        time = self.t_ps[500*m]
+                        # print("time =", time)
+                        if(C>0):
+                            sync_times[n] = time
+                        if(C<0):
+                            sync_times[n] = -time
+                        sync_reached = True
+                        # break
+                    #sync lost
+                    if(sync_reached ==True and np.abs(C_new)<0.96):
+                        sync_times[n] = nan_time
+                        break
+                    C= C_new
 
-                #identify smallest eigvalue
-                for k in range(len(vals)):
-                    if(np.abs(np.real(vals[k]))<np.abs(val)):
-                        val = np.real(vals[k])
-                        lowest_eigID =k
-
-                        lowest_X1coupling = np.trace(self.oX1.dot(eigs[lowest_eigID].reshape(N, N)))
-                        print("lowest_X1coupling = ", lowest_X1coupling)
-
-                        lowest_X2coupling = np.trace(self.oX2.dot(eigs[lowest_eigID].reshape(N, N)))
-                        print("lowest_X2coupling = ", lowest_X2coupling)
-                #second smallest
-                val = 50
-                for l in range(len(vals)):
-                    if(np.abs(np.real(vals[l]))<np.abs(val) and l != lowest_eigID):
-                        val = np.real(vals[l])
-                        second_lowest_eigID =l
-                        print("eig shape = ", eigs[second_lowest_eigID].shape)
-
-                        second_X1coupling = np.trace(self.oX1.dot(eigs[second_lowest_eigID].reshape(N, N)))
-                        print("second_X1coupling = ", second_X1coupling)
-
-                        second_X2coupling = np.trace(self.oX2.dot(eigs[second_lowest_eigID].reshape(N, N)))
-                        print("second_X2coupling = ", second_X2coupling)
-                #third smallest
-                val = 50
-                for m in range(len(vals)):
-                    if(np.abs(np.real(vals[m]))<np.abs(val) and m != lowest_eigID and m != second_lowest_eigID):
-                        val = np.real(vals[m])
-                        third_lowest_eigID =m
-
-                        third_X1coupling = np.trace(self.oX1.dot(eigs[third_lowest_eigID].reshape(N, N)))
-                        print("third_X1coupling = ", third_X1coupling)
-
-                        third_X2coupling = np.trace(self.oX2.dot(eigs[third_lowest_eigID].reshape(N, N)))
-                        print("third_X2coupling = ", third_X2coupling)
-                
-
-
-                # print("lowest_X1coupling = ", np.abs(lowest_X1coupling))
-                # print(np.abs(second_X1coupling))
-                # print(np.abs(third_X1coupling))
-
-                # print("lowest_X2coupling = ", np.abs(lowest_X2coupling))
-                # print(np.abs(second_X2coupling))
-                # print(np.abs(third_X2coupling))
-
-
-                lowest_coupling = np.abs(lowest_X1coupling + lowest_X2coupling)
-                second_coupling = np.abs(second_X1coupling + second_X2coupling)
-                third_coupling = np.abs(third_X1coupling + third_X2coupling)
-
-                couplings = np.asarray([lowest_coupling, second_coupling, third_coupling])
-                sort_couplings = sorted(couplings, key=abs)
-                print(sort_couplings)
-
-                l1= 0 
-                if(sort_couplings[1] == lowest_coupling):
-                    l1 = np.real(vals[lowest_eigID])
-                elif(sort_couplings[1] == second_coupling): 
-                    l1 = np.real(vals[second_lowest_eigID])
-                elif(sort_couplings[1] == third_coupling): 
-                    l1 = np.real(vals[third_lowest_eigID])
-
-                l2= 0 
-                if(sort_couplings[2] == lowest_coupling):
-                    l2 = np.real(vals[lowest_eigID])
-                elif(sort_couplings[2] == second_coupling): 
-                    l2 = np.real(vals[second_lowest_eigID])
-                elif(sort_couplings[2] == third_coupling): 
-                    l2 = np.real(vals[third_lowest_eigID])
-
-                
-
-
-
-                #eig_difference = np.real(vals[second_lowest_eigID]) - np.real(vals[lowest_eigID])
-                #eigval_differences[n] = eig_difference
-                eigval_differences[n] = l2 - l1
                 n+=1
-                # print("eig_difference = ", eig_difference)
-                count2 = time.time()
-                print('Difference Time =', count2 - count1)
-
-        plt.figure()
-        plt.title('Eigenvalue differences')
-        plt.xlabel("$\Gamma_{th}$", fontsize =13)
-        plt.ylabel("$\Gamma_{deph}$", fontsize =13)
-        # im =plt.imshow(, cmap = 'rainbow')
-        print(th_data)
-        print(el_data)
-        print(eigval_differences)
-        plt.scatter(th_data,el_data, c=eigval_differences, s =50)
-        cb = plt.colorbar()
-        cb.set_label(r"$\lambda_2^R - \lambda_1^R$")
-
         
-        #np.set_printoptions(threshold=np.inf)
-        #print(vals)
-        
-        #print("liouv shape = ",self.collective_liouvillian().todense())
-        # print("eigs shape = ", eigs.shape)
-        # print("len(vals)= ",len(vals))
-        
-        
-                #print("eigs[lowest_eigID] = ", eigs[lowest_eigID])
-            # if(np.conjugate(vals[lowest_eigID]) == vals[i]):
-                
-            #     lowest_eig_conjID = i
-
-        # for i in range(len(vals)):
-        #     if (self.truncate(np.real(vals[i]),3) == self.truncate(np.real(vals[lowest_eigID]),3)):
-        #         print(i)
-        #         print("YES")
-        #         print(vals[i])
-
-        #SECOND LOWEST EIGENVALUE
+        fig, ax = plt.subplots(1,1)
+        plt.title('Synchronisation Times')
+        plt.xlabel("$\Gamma_{th} / [ps]^{-1}$", fontsize =13)
+        plt.ylabel("$\Gamma_{deph} / [ps]^{-1}$", fontsize =13)
+        times_square = sync_times.reshape(len(self.th_rates),len(self.el_rates), order='F')
+        print(sync_times)
+        print(times_square)
+        inv = self.cmap_map(lambda x: 1-x, matplotlib.cm.PRGn)
+        # im =plt.imshow(times_square, cmap = inv)
+        img = ax.imshow(times_square,extent=[0.025,1.025,0.025,1.025], cmap=inv, vmin=-6, vmax=6)
+        #x_label_list = ['A2', 'B2', 'C2', 'D2']
+        ax.set_xticks(self.th_rates[1::2])
+        ax.set_yticks(self.el_rates[::2])
+        # plt.xticks(self.th_rates)
+        # plt.yticks(self.el_rates)
+        #im.show()
+        cb2 = fig.colorbar(img)
+        cb2.set_label(r"Synchronisation Time $(ps)$")
+        if(self.save_plots == True):
+            fig.savefig('Sync_times_heatmap.png',bbox_inches='tight',dpi=600)
         
 
-        
-
-
-        # print("////////////////")
-        # print(vals[1])
-        # print("lowest_eigID = ", lowest_eigID)
-        # print("vals[0] = ", vals[0])
-        # print("vals[lowest_eigID] = ", vals[lowest_eigID])
-        # print("vals[lowest_eigID_conj] = ", vals[lowest_eig_conjID])
-      
-
-        
-
-        # if(self.save_plots == True):
-        #     fig.savefig('sync_evol.png',bbox_inches='tight',dpi=600)
-
-        # eigL = np.linalg.eig(self.collective_liouvillian().todense())
-
-        # #inds = np.abs(np.imag(eigL[0])).argsort()
-
-        # inds = eigL[0].argsort()
-        # inds = inds[::-1]
-        # orderedeigL = eigL[1][:,inds]
-        # orderedenL = eigL[0][inds]
-
-        # print("orderedeigL = ", orderedeigL)
-
-
-        
-
-
-
-
-
+        # plt.figure(901)
+        # plt.title('Synchronisation Times')
+        # plt.xlabel("$\Gamma_{th}$", fontsize =13)
+        # plt.ylabel("$\Gamma_{deph}$", fontsize =13)
+        # print(sync_times)
+        # plt.scatter(th_data,el_data, c=sync_times, s =50)
+        # cb = plt.colorbar()
+        # cb.set_label(r"Synchronisation Time $(ps)$")
 
 
 if __name__ == "__main__":
@@ -1246,28 +1699,37 @@ if __name__ == "__main__":
 
 
     #original  r_th =[1ps]^-1, r_el = [0.1ps]^-1
-    # plot = Plots(r_th =0.1, r_el =1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 2.1)
-    #plot.test()
-    # plot.matrix_elements()
+    plot = Plots(r_th =1, r_el =0.1, phi1 = 0 , phi2 =0, detuning =1, j_k=j_k, save_plots = True, n_cutoff=5, temperature=298, tmax_ps = 4.1)
+    # # plot.test()
+    # # plot.matrix_elements()
     #plot.sync_evol()
-    # plot.coherences()
-    
+    plot.coherences()
+    #plot.hilbert_space_plotter()
     # plot.coherences_sigmax_scaling()
     # plot.energy_transfer()
     # plot.vib_collec_evol()
     # plot.q_correlations()
 
-    # el_rates = [0.05,0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
-    # th_rates = [0.05,0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
+    #el_rates = [0.05,0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
+    el_rates = [1,0.95,0.9,0.85,0.8,0.75,0.7,0.65,0.6,0.55,0.5,0.45,0.4,0.35,0.3,0.25,0.2,0.15,0.1,0.05]
+    th_rates = [0.05,0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
+    # el_rates = [1,0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1]
+    # th_rates = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
     # el_rates = [0.1,0.25,0.5,0.75,1]
+    # el_rates = [1,0.75,0.5,0.25,0.1]
     # th_rates = [0.1,0.25,0.5,0.75,1]
-    el_rates = [0.1,0.5,1]
-    th_rates = [0.1,0.5,1]
-    multiPlot =MultiPlots(el_rates = el_rates, th_rates =th_rates, phi1 = 0 , phi2 =0, detuning =1, save_plots=False, n_cutoff=5, temperature=298, tmax_ps=2.2)
-    multiPlot.liouv_eigs()
-    # # # multiPlot.Multi_sync_evol()
+    # el_rates = [1,0.1]
+    # th_rates = [0.1,1]
+    
+    # el_rates=[0.1]
+    # th_rates = [0.05]
+    # multiPlot =MultiPlots(el_rates = el_rates, th_rates =th_rates, phi1 = 0 , phi2 =0, detuning =1, save_plots=True, n_cutoff=5, temperature=298, tmax_ps=8.1) # 0.22 div by 8
+    # multiPlot.get_sync_times() #el_rates must be descending for sync_times
+    # # multiPlot.liouv_eigs()
+    # multiPlot.eigs_nocoupling()
+    # multiPlot.Multi_sync_evol()
     # multiPlot.Multi_coherence()
-    # # multiPlot.Multi_ET()
+    # multiPlot.Multi_ET()
     
 
     plt.show()
